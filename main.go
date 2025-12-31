@@ -3,22 +3,18 @@ package main
 import (
 	"fmt"
 	"grianlang3/lexer"
+	"grianlang3/parser"
 )
 
 func main() {
 	input := "1+4+3"
 
-	tokens := []lexer.Token{}
-
 	l := lexer.New(input)
+	p := parser.New(l)
 
-	for {
-		tok := l.NextToken()
-		tokens = append(tokens, tok)
-		if tok.Type == lexer.EOF {
-			break
-		}
+	program := p.ParseProgram()
+
+	for _, s := range program.Statements {
+		fmt.Printf("%s\n", s.String())
 	}
-
-	fmt.Printf("%v\n", tokens)
 }

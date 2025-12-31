@@ -43,6 +43,8 @@ func (l *Lexer) NextToken() Token {
 	switch l.ch {
 	case '+':
 		tok = newToken(PLUS, l.ch)
+	case ';':
+		tok = newToken(SEMICOLON, l.ch)
 	case 0:
 		tok.Literal = ""
 		tok.Type = EOF

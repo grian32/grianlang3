@@ -5,6 +5,7 @@ type TokenType uint8
 const (
 	INT TokenType = iota
 	PLUS
+	SEMICOLON
 	EOF
 )
 
