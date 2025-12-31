@@ -10,6 +10,6 @@ const (
 )
 
 type Token struct {
-	Type TokenType
+	Type    TokenType
 	Literal string
 }

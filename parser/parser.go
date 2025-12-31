@@ -18,13 +18,13 @@ const (
 	INDEX
 )
 
-var precedences = map[lexer.TokenType]byte {
+var precedences = map[lexer.TokenType]byte{
 	lexer.PLUS: SUM,
 }
 
 type (
 	prefixParseFn func() Expression
-	infixParseFn func(Expression) Expression
+	infixParseFn  func(Expression) Expression
 )
 
 // Parser heavily based on the grpgscript parser https://github.com/grian32/grpg/grpgscript
@@ -37,7 +37,7 @@ type Parser struct {
 	peekToken lexer.Token
 
 	prefixParseFns map[lexer.TokenType]prefixParseFn
-	infixParseFns map[lexer.TokenType]infixParseFn
+	infixParseFns  map[lexer.TokenType]infixParseFn
 }
 
 func New(l *lexer.Lexer) *Parser {
@@ -124,7 +124,6 @@ func (p *Parser) parseExpressionStatement() Statement {
 
 	return stmt
 }
-
 
 func (p *Parser) parseExpression(precendence byte) Expression {
 	prefix := p.prefixParseFns[p.currToken.Type]
