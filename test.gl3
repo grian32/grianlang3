@@ -1,1 +1,3 @@
 def int xyzabc = 3;
+xyzabc = 7
+xyzabc

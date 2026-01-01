@@ -6,7 +6,7 @@ const (
 	INT TokenType = iota
 	PLUS
 	SEMICOLON
-	EQUALS
+	ASSIGN
 	IDENTIFIER
 	DEF
 	TYPE
@@ -21,8 +21,8 @@ func (tt TokenType) String() string {
 		return "PLUS"
 	case SEMICOLON:
 		return "SEMICOLON"
-	case EQUALS:
-		return "EQUALS"
+	case ASSIGN:
+		return "ASSIGN"
 	case IDENTIFIER:
 		return "IDENTIFIER"
 	case DEF:

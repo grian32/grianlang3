@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"grianlang3/lexer"
+	"grianlang3/parser"
 	"os"
 )
 
@@ -15,11 +16,13 @@ func main() {
 	fmt.Printf("from:\n%s\n", input)
 
 	l := lexer.New(string(input))
-	printTokens(l)
+	//printTokens(l)
 
-	//p := parser.New(l)
-	//
-	//program := p.ParseProgram()
+	p := parser.New(l)
+
+	program := p.ParseProgram()
+
+	fmt.Printf("%s\n", program.String())
 	//
 	//e := emitter.New()
 	//

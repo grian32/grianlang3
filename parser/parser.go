@@ -48,6 +48,7 @@ func New(l *lexer.Lexer) *Parser {
 
 	p.prefixParseFns = make(map[lexer.TokenType]prefixParseFn)
 	p.prefixParseFns[lexer.INT] = p.parseIntegerLiteral
+	p.prefixParseFns[lexer.IDENTIFIER] = p.parseIdentifier
 
 	p.infixParseFns = make(map[lexer.TokenType]infixParseFn)
 	p.infixParseFns[lexer.PLUS] = p.parseInfixExpression
@@ -72,6 +73,10 @@ func (p *Parser) parseInfixExpression(left Expression) Expression {
 	expression.Right = p.parseExpression(precendece)
 
 	return expression
+}
+
+func (p *Parser) parseIdentifier() Expression {
+	return &RefExpression{Token: p.currToken, Name: p.currToken.Literal}
 }
 
 func (p *Parser) parseIntegerLiteral() Expression {
@@ -102,9 +107,56 @@ func (p *Parser) ParseProgram() *Program {
 }
 
 func (p *Parser) parseStatement() Statement {
+	if p.currTokenIs(lexer.DEF) {
+		return p.parseVarStatement()
+	} else if p.currTokenIs(lexer.IDENTIFIER) && p.peekTokenIs(lexer.ASSIGN) {
+		return p.parseAssignStatement()
+	}
+
 	return p.parseExpressionStatement()
 }
 
+func (p *Parser) parseAssignStatement() *AssignmentStatement {
+	stmt := &AssignmentStatement{Token: p.currToken}
+	stmt.Name = p.currToken.Literal
+
+	p.NextToken() // skip ident
+	p.NextToken() // skip assign, prechecked by parseStatement
+
+	stmt.Right = p.parseExpression(LOWEST)
+
+	return stmt
+}
+
+func (p *Parser) parseVarStatement() *DefStatement {
+	stmt := &DefStatement{Token: p.currToken}
+
+	if !p.expectPeek(lexer.TYPE) {
+		return nil
+	}
+
+	stmt.Type = p.currToken.VarType
+
+	if !p.expectPeek(lexer.IDENTIFIER) {
+		return nil
+	}
+
+	stmt.Name = p.currToken.Literal
+
+	if !p.expectPeek(lexer.ASSIGN) {
+		return nil
+	}
+
+	p.NextToken()
+
+	stmt.Right = p.parseExpression(LOWEST)
+
+	if p.peekTokenIs(lexer.SEMICOLON) {
+		p.NextToken()
+	}
+
+	return stmt
+}
 func (p *Parser) peekTokenIs(tt lexer.TokenType) bool {
 	return p.peekToken.Type == tt
 }
@@ -162,7 +214,21 @@ func (p *Parser) currPrecedence() byte {
 
 	return LOWEST
 }
+
 func (p *Parser) noPrefixParseFnError(t lexer.Token) {
 	msg := fmt.Sprintf("no prefix parse function for %d found", t.Type)
 	p.Errors = append(p.Errors, msg)
+}
+
+func (p *Parser) expectPeek(t lexer.TokenType) bool {
+	if p.peekTokenIs(t) {
+		p.NextToken()
+		return true
+	}
+
+	p.peekError(t)
+	return false
+}
+func (p *Parser) peekError(t lexer.TokenType) {
+	p.Errors = append(p.Errors, fmt.Sprintf("expected next token to be %s, got %s instead", t, p.peekToken.Type))
 }

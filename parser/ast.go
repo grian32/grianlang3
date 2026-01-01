@@ -36,6 +36,7 @@ func (p *Program) String() string {
 
 	for _, s := range p.Statements {
 		out.WriteString(s.String())
+		out.WriteString(";")
 	}
 
 	return out.String()
@@ -77,3 +78,37 @@ func (ie *InfixExpression) TokenLiteral() string { return ie.Token.Literal }
 func (ie *InfixExpression) String() string {
 	return "(" + ie.Left.String() + " " + ie.Operator + " " + ie.Right.String() + ")"
 }
+
+type DefStatement struct {
+	Token lexer.Token
+	Name  string
+	Type  lexer.VarType
+	Right Expression
+}
+
+func (ds *DefStatement) statementNode()       { /* noop */ }
+func (ds *DefStatement) TokenLiteral() string { return ds.Token.Literal }
+func (ds *DefStatement) String() string {
+	return "def " + ds.Type.String() + " " + ds.Name + " = " + ds.Right.String()
+}
+
+type AssignmentStatement struct {
+	Token lexer.Token
+	Name  string
+	Right Expression
+}
+
+func (as *AssignmentStatement) statementNode()       { /* noop */ }
+func (as *AssignmentStatement) TokenLiteral() string { return as.Token.Literal }
+func (as *AssignmentStatement) String() string {
+	return as.Name + " = " + as.Right.String()
+}
+
+type RefExpression struct {
+	Token lexer.Token
+	Name  string
+}
+
+func (re *RefExpression) expressionNode()      { /* noop */ }
+func (re *RefExpression) TokenLiteral() string { return re.Token.Literal }
+func (re *RefExpression) String() string       { return re.Name }
