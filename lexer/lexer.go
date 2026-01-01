@@ -1,5 +1,7 @@
 package lexer
 
+import "grianlang3/util"
+
 type Lexer struct {
 	input   string
 	pos     int
@@ -45,13 +47,21 @@ func (l *Lexer) NextToken() Token {
 		tok = newToken(PLUS, l.ch)
 	case ';':
 		tok = newToken(SEMICOLON, l.ch)
+	case '=':
+		tok = newToken(EQUALS, l.ch)
 	case 0:
 		tok.Literal = ""
 		tok.Type = EOF
 	default:
-		if l.ch >= '0' && l.ch <= '9' {
+		if util.IsDigit(l.ch) {
 			tok.Literal = l.readInt()
 			tok.Type = INT
+			return tok
+		}
+
+		if util.IsAlpha(l.ch) {
+			tok.Literal = l.readIdentifier()
+			tok.Type, tok.VarType = identLookup(tok.Literal)
 			return tok
 		}
 	}
@@ -63,7 +73,17 @@ func (l *Lexer) NextToken() Token {
 func (l *Lexer) readInt() string {
 	startPos := l.pos
 
-	for l.ch >= '0' && l.ch <= '9' {
+	for util.IsDigit(l.ch) {
+		l.readChar()
+	}
+
+	return l.input[startPos:l.pos]
+}
+
+func (l *Lexer) readIdentifier() string {
+	startPos := l.pos
+
+	for util.IsAlpha(l.ch) {
 		l.readChar()
 	}
 
@@ -72,4 +92,15 @@ func (l *Lexer) readInt() string {
 
 func newToken(tt TokenType, ch byte) Token {
 	return Token{Type: tt, Literal: string(ch)}
+}
+
+func identLookup(lit string) (TokenType, VarType) {
+	switch lit {
+	case "int":
+		return TYPE, Int
+	case "def":
+		return DEF, None
+	}
+
+	return IDENTIFIER, None
 }
