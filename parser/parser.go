@@ -19,7 +19,8 @@ const (
 )
 
 var precedences = map[lexer.TokenType]byte{
-	lexer.PLUS: SUM,
+	lexer.PLUS:   SUM,
+	lexer.LPAREN: CALL,
 }
 
 type (
@@ -49,9 +50,11 @@ func New(l *lexer.Lexer) *Parser {
 	p.prefixParseFns = make(map[lexer.TokenType]prefixParseFn)
 	p.prefixParseFns[lexer.INT] = p.parseIntegerLiteral
 	p.prefixParseFns[lexer.IDENTIFIER] = p.parseIdentifier
+	//p.prefixParseFns[lexer.LPAREN] = p.parseGroupedExpression
 
 	p.infixParseFns = make(map[lexer.TokenType]infixParseFn)
 	p.infixParseFns[lexer.PLUS] = p.parseInfixExpression
+	p.infixParseFns[lexer.LPAREN] = p.parseCallExpression
 
 	return p
 }
@@ -76,7 +79,7 @@ func (p *Parser) parseInfixExpression(left Expression) Expression {
 }
 
 func (p *Parser) parseIdentifier() Expression {
-	return &RefExpression{Token: p.currToken, Name: p.currToken.Literal}
+	return &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
 }
 
 func (p *Parser) parseIntegerLiteral() Expression {
@@ -91,6 +94,7 @@ func (p *Parser) parseIntegerLiteral() Expression {
 
 	return lit
 }
+
 func (p *Parser) ParseProgram() *Program {
 	program := &Program{}
 	program.Statements = []Statement{}
@@ -106,19 +110,137 @@ func (p *Parser) ParseProgram() *Program {
 	return program
 }
 
+func (p *Parser) parseCallExpression(left Expression) Expression {
+	exp := &CallExpression{Token: p.currToken}
+	if identExpr, ok := left.(*IdentifierExpression); ok {
+		exp.Function = identExpr
+	} else {
+		return nil
+	}
+	p.NextToken()
+
+	exp.Params = []Expression{}
+
+	for !p.currTokenIs(lexer.RPAREN) {
+		expr := p.parseExpression(LOWEST)
+		p.NextToken()
+		exp.Params = append(exp.Params, expr)
+		if p.currTokenIs(lexer.RPAREN) {
+			break
+		} else if p.currTokenIs(lexer.COMMA) {
+			p.NextToken()
+			continue
+		} else {
+			return nil
+		}
+	}
+
+	return exp
+}
+
 func (p *Parser) parseStatement() Statement {
 	if p.currTokenIs(lexer.DEF) {
 		return p.parseVarStatement()
 	} else if p.currTokenIs(lexer.IDENTIFIER) && p.peekTokenIs(lexer.ASSIGN) {
 		return p.parseAssignStatement()
+	} else if p.currTokenIs(lexer.RETURN) {
+		return p.parseReturnStatement()
+	} else if p.currTokenIs(lexer.FNC) {
+		return p.parseFunctionStatement()
 	}
 
 	return p.parseExpressionStatement()
 }
 
+func (p *Parser) parseReturnStatement() Statement {
+	stmt := &ReturnStatement{Token: p.currToken}
+	p.NextToken()
+	expr := p.parseExpression(LOWEST)
+	stmt.Expr = expr
+	return stmt
+}
+
+func (p *Parser) parseBlockStatement() *BlockStatement {
+	bs := &BlockStatement{Token: p.currToken}
+	bs.Statements = []Statement{}
+
+	for !p.currTokenIs(lexer.RBRACE) {
+		stmt := p.parseStatement()
+		if stmt != nil {
+			bs.Statements = append(bs.Statements, stmt)
+		}
+		p.NextToken()
+	}
+
+	return bs
+}
+
+func (p *Parser) parseFunctionStatement() Statement {
+	stmt := &FunctionStatement{Token: p.currToken}
+
+	if !p.expectPeek(lexer.IDENTIFIER) {
+		return nil
+	}
+	stmt.Name = &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
+	if !p.expectPeek(lexer.LPAREN) {
+		return nil
+	}
+
+	stmt.Params = []FunctionParameter{}
+
+	// for empty arg list if it is rparen then it just stops immediately since we curr are on lparen
+	for !p.peekTokenIs(lexer.RPAREN) {
+		if !p.expectPeek(lexer.TYPE) {
+			return nil
+		}
+		paramType := p.currToken.VarType
+		if !p.expectPeek(lexer.IDENTIFIER) {
+			return nil
+		}
+		ident := &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
+		p.NextToken()
+
+		param := FunctionParameter{
+			Type: paramType,
+			Name: ident,
+		}
+
+		stmt.Params = append(stmt.Params, param)
+		if p.currTokenIs(lexer.RPAREN) {
+			break
+		} else if p.currTokenIs(lexer.COMMA) {
+			continue
+		} else {
+			return nil
+		}
+	}
+
+	if !p.currTokenIs(lexer.RPAREN) {
+		return nil
+	}
+	if !p.expectPeek(lexer.ARROW) {
+		return nil
+	}
+	if !p.expectPeek(lexer.TYPE) {
+		return nil
+	}
+	stmt.Type = p.currToken.VarType
+
+	if !p.expectPeek(lexer.LBRACE) {
+		return nil
+	}
+	p.NextToken()
+	stmt.Body = p.parseBlockStatement()
+	if !p.currTokenIs(lexer.RBRACE) {
+		return nil
+	}
+
+	return stmt
+}
+
 func (p *Parser) parseAssignStatement() *AssignmentStatement {
 	stmt := &AssignmentStatement{Token: p.currToken}
-	stmt.Name = p.currToken.Literal
+	stmt.Name = &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
 
 	p.NextToken() // skip ident
 	p.NextToken() // skip assign, prechecked by parseStatement
@@ -141,7 +263,7 @@ func (p *Parser) parseVarStatement() *DefStatement {
 		return nil
 	}
 
-	stmt.Name = p.currToken.Literal
+	stmt.Name = &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
 
 	if !p.expectPeek(lexer.ASSIGN) {
 		return nil

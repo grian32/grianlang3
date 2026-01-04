@@ -64,26 +64,26 @@ func (e *Emitter) Emit(node parser.Node) value.Value {
 		right := e.Emit(node.Right)
 
 		vPtr := e.entry.NewAlloca(lt)
-		e.variables[node.Name] = vPtr
-		e.varTypes[node.Name] = lt
+		e.variables[node.Name.Value] = vPtr
+		e.varTypes[node.Name.Value] = lt
 		e.entry.NewStore(right, vPtr)
 		return right
 	case *parser.AssignmentStatement:
-		vPtr, ok := e.variables[node.Name]
+		vPtr, ok := e.variables[node.Name.Value]
 		if !ok {
 			fmt.Printf("compile error: couldn't find variable of name %s used in var assignment", node.Name)
 		}
 		right := e.Emit(node.Right)
 		e.entry.NewStore(right, vPtr)
 		return right
-	case *parser.RefExpression:
-		vPtr, ok := e.variables[node.Name]
+	case *parser.IdentifierExpression:
+		vPtr, ok := e.variables[node.Value]
 		if !ok {
-			fmt.Printf("compile error: couldn't find variable of name %s used in var ref", node.Name)
+			fmt.Printf("compile error: couldn't find variable of name %s used in var ref", node.Value)
 		}
-		vType, ok := e.varTypes[node.Name]
+		vType, ok := e.varTypes[node.Value]
 		if !ok {
-			fmt.Printf("compile error: couldn't find variable type of name %s used in var ref", node.Name)
+			fmt.Printf("compile error: couldn't find variable type of name %s used in var ref", node.Value)
 		}
 		return e.entry.NewLoad(vType, vPtr)
 	}

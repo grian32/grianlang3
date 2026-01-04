@@ -35,6 +35,17 @@ func (l *Lexer) peekChar() byte {
 	}
 }
 
+var singleCharToken = map[byte]TokenType{
+	'+': PLUS,
+	';': SEMICOLON,
+	'=': ASSIGN,
+	'(': LPAREN,
+	')': RPAREN,
+	'{': LBRACE,
+	'}': RBRACE,
+	',': COMMA,
+}
+
 func (l *Lexer) NextToken() Token {
 	var tok Token
 
@@ -42,13 +53,22 @@ func (l *Lexer) NextToken() Token {
 		l.readChar()
 	}
 
+	sct, ok := singleCharToken[l.ch]
+	if ok {
+		tok = newToken(sct, l.ch)
+		// ret early here is a bit of future proofing/opti
+		l.readChar()
+		return tok
+	}
+
 	switch l.ch {
-	case '+':
-		tok = newToken(PLUS, l.ch)
-	case ';':
-		tok = newToken(SEMICOLON, l.ch)
-	case '=':
-		tok = newToken(ASSIGN, l.ch)
+	case '-':
+		if l.peekChar() == '>' {
+			l.readChar()
+			l.readChar()
+			tok.Type = ARROW
+			tok.Literal = l.input[l.pos-2 : l.pos]
+		}
 	case 0:
 		tok.Literal = ""
 		tok.Type = EOF
@@ -100,6 +120,10 @@ func identLookup(lit string) (TokenType, VarType) {
 		return TYPE, Int
 	case "def":
 		return DEF, None
+	case "fnc":
+		return FNC, None
+	case "return":
+		return RETURN, None
 	}
 
 	return IDENTIFIER, None

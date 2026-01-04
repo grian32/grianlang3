@@ -81,7 +81,7 @@ func (ie *InfixExpression) String() string {
 
 type DefStatement struct {
 	Token lexer.Token
-	Name  string
+	Name  *IdentifierExpression
 	Type  lexer.VarType
 	Right Expression
 }
@@ -89,26 +89,111 @@ type DefStatement struct {
 func (ds *DefStatement) statementNode()       { /* noop */ }
 func (ds *DefStatement) TokenLiteral() string { return ds.Token.Literal }
 func (ds *DefStatement) String() string {
-	return "def " + ds.Type.String() + " " + ds.Name + " = " + ds.Right.String()
+	return "def " + ds.Type.String() + " " + ds.Name.String() + " = " + ds.Right.String()
 }
 
 type AssignmentStatement struct {
 	Token lexer.Token
-	Name  string
+	Name  *IdentifierExpression
 	Right Expression
 }
 
 func (as *AssignmentStatement) statementNode()       { /* noop */ }
 func (as *AssignmentStatement) TokenLiteral() string { return as.Token.Literal }
 func (as *AssignmentStatement) String() string {
-	return as.Name + " = " + as.Right.String()
+	return as.Name.String() + " = " + as.Right.String()
 }
 
-type RefExpression struct {
+type IdentifierExpression struct {
 	Token lexer.Token
-	Name  string
+	Value string
 }
 
-func (re *RefExpression) expressionNode()      { /* noop */ }
-func (re *RefExpression) TokenLiteral() string { return re.Token.Literal }
-func (re *RefExpression) String() string       { return re.Name }
+func (ie *IdentifierExpression) expressionNode()      { /* noop */ }
+func (ie *IdentifierExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *IdentifierExpression) String() string       { return ie.Value }
+
+type ReturnStatement struct {
+	Token lexer.Token
+	Expr  Expression
+}
+
+func (rs *ReturnStatement) statementNode()       { /* noop */ }
+func (rs *ReturnStatement) TokenLiteral() string { return rs.Token.Literal }
+func (rs *ReturnStatement) String() string       { return "return " + rs.Expr.String() }
+
+type BlockStatement struct {
+	Token      lexer.Token
+	Statements []Statement
+}
+
+func (bs *BlockStatement) statementNode()       { /* noop */ }
+func (bs *BlockStatement) TokenLiteral() string { return bs.Token.Literal }
+func (bs *BlockStatement) String() string {
+	var out bytes.Buffer
+
+	for i, s := range bs.Statements {
+		out.WriteString(s.String())
+		if i != len(bs.Statements)-1 {
+			out.WriteString(";")
+		}
+	}
+
+	return out.String()
+}
+
+type FunctionParameter struct {
+	Type lexer.VarType
+	Name *IdentifierExpression
+}
+
+func (fp *FunctionParameter) String() string { return fp.Type.String() + " " + fp.Name.String() }
+
+type FunctionStatement struct {
+	Token  lexer.Token
+	Name   *IdentifierExpression
+	Type   lexer.VarType
+	Params []FunctionParameter
+	Body   *BlockStatement
+}
+
+func (fs *FunctionStatement) statementNode()       { /* noop */ }
+func (fs *FunctionStatement) TokenLiteral() string { return fs.Token.Literal }
+func (fs *FunctionStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("fnc " + fs.Name.String() + "(")
+
+	for i, p := range fs.Params {
+		out.WriteString(p.String())
+		if i != len(fs.Params)-1 {
+			out.WriteString(", ")
+		}
+	}
+	out.WriteString(") -> " + fs.Type.String() + " { " + fs.Body.String() + " }")
+	return out.String()
+}
+
+type CallExpression struct {
+	Token    lexer.Token
+	Function *IdentifierExpression
+	Params   []Expression
+}
+
+func (ce *CallExpression) expressionNode()      { /* noop */ }
+func (ce *CallExpression) TokenLiteral() string { return ce.Token.Literal }
+func (ce *CallExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString(ce.Function.String() + "(")
+
+	for i, p := range ce.Params {
+		out.WriteString(p.String())
+		if i != len(ce.Params)-1 {
+			out.WriteString(", ")
+		}
+	}
+
+	out.WriteString(")")
+
+	return out.String()
+}
