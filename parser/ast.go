@@ -59,12 +59,13 @@ func (es *ExpressionStatement) String() string {
 
 type IntegerLiteral struct {
 	Token lexer.Token
-	Value int64
+	Type  lexer.VarType // options: Int, Int32
+	Value int64         // stored as i64 internally for all
 }
 
 func (il *IntegerLiteral) expressionNode()      { /* noop */ }
 func (il *IntegerLiteral) TokenLiteral() string { return il.Token.Literal }
-func (il *IntegerLiteral) String() string       { return il.Token.Literal }
+func (il *IntegerLiteral) String() string       { return il.Token.Literal + "(" + il.Type.String() + ")" }
 
 type InfixExpression struct {
 	Token    lexer.Token

@@ -12,20 +12,29 @@ import (
 )
 
 type Emitter struct {
-	m         *ir.Module
-	entry     *ir.Block
-	variables map[string]*ir.InstAlloca
-	varTypes  map[string]types.Type
+	m *ir.Module
+	// var, vartypes, params get reset after each function is emitted.
+	variables  map[string]*ir.InstAlloca
+	varTypes   map[string]types.Type
+	parameters map[string]*ir.Param
+
+	functions      map[string]*ir.Func
+	functionBlocks map[string]*ir.Block
 }
 
 func New() *Emitter {
 	e := &Emitter{m: ir.NewModule()}
 	e.variables = make(map[string]*ir.InstAlloca)
 	e.varTypes = make(map[string]types.Type)
-	e.m.NewFunc("dbg_i64", types.Void, ir.NewParam("val", types.I64))
-	main := e.m.NewFunc("main", types.I32)
-	entry := main.NewBlock("")
-	e.entry = entry
+	e.functions = make(map[string]*ir.Func)
+	e.functionBlocks = make(map[string]*ir.Block)
+	e.parameters = make(map[string]*ir.Param)
+
+	fnc := e.m.NewFunc("dbg_i64", types.Void, ir.NewParam("val", types.I64))
+	e.functions["dbg_i64"] = fnc
+	// main := e.m.NewFunc("main", types.I32)
+	// entry := main.NewBlock("")
+	// e.entry = entry
 	return e
 }
 
@@ -33,50 +42,47 @@ func (e *Emitter) Module() *ir.Module {
 	return e.m
 }
 
-func (e *Emitter) Emit(node parser.Node) value.Value {
+func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 	switch node := node.(type) {
 	case *parser.Program:
 		var last value.Value
 		for _, s := range node.Statements {
-			last = e.Emit(s)
-		}
-		if last != nil {
-			dbgFunc := e.m.Funcs[0]
-			e.entry.NewCall(dbgFunc, last)
+			last = e.Emit(s, entry)
 		}
 
-		e.entry.NewRet(constant.NewInt(types.I32, 0))
 		return last
 	case *parser.ExpressionStatement:
-		return e.Emit(node.Expression)
+		return e.Emit(node.Expression, entry)
 	case *parser.IntegerLiteral:
-		return constant.NewInt(types.I64, node.Value)
+		// sorta unsafe cast i think, will crash tho if incompatible so same behaviour? maybe better to have an error msg tho
+		return constant.NewInt(varTypeToLlvm(node.Type).(*types.IntType), node.Value)
 	case *parser.InfixExpression:
-		left := e.Emit(node.Left)
-		right := e.Emit(node.Right)
+		left := e.Emit(node.Left, entry)
+		right := e.Emit(node.Right, entry)
 
 		switch node.Operator {
 		case "+":
-			return e.entry.NewAdd(left, right)
+			return entry.NewAdd(left, right)
 		}
 	case *parser.DefStatement:
 		lt := varTypeToLlvm(node.Type)
-		right := e.Emit(node.Right)
+		right := e.Emit(node.Right, entry)
 
-		vPtr := e.entry.NewAlloca(lt)
+		vPtr := entry.NewAlloca(lt)
 		e.variables[node.Name.Value] = vPtr
 		e.varTypes[node.Name.Value] = lt
-		e.entry.NewStore(right, vPtr)
+		entry.NewStore(right, vPtr)
 		return right
 	case *parser.AssignmentStatement:
-		vPtr, ok := e.variables[node.Name.Value]
-		if !ok {
-			fmt.Printf("compile error: couldn't find variable of name %s used in var assignment", node.Name)
-		}
-		right := e.Emit(node.Right)
-		e.entry.NewStore(right, vPtr)
+		vPtr, _ := e.variables[node.Name.Value]
+		right := e.Emit(node.Right, entry)
+		entry.NewStore(right, vPtr)
 		return right
 	case *parser.IdentifierExpression:
+		if param, ok := e.parameters[node.Value]; ok {
+			return param
+		}
+
 		vPtr, ok := e.variables[node.Value]
 		if !ok {
 			fmt.Printf("compile error: couldn't find variable of name %s used in var ref", node.Value)
@@ -85,7 +91,50 @@ func (e *Emitter) Emit(node parser.Node) value.Value {
 		if !ok {
 			fmt.Printf("compile error: couldn't find variable type of name %s used in var ref", node.Value)
 		}
-		return e.entry.NewLoad(vType, vPtr)
+		return entry.NewLoad(vType, vPtr)
+	case *parser.CallExpression:
+		var args []value.Value
+
+		for _, a := range node.Params {
+			args = append(args, e.Emit(a, entry))
+		}
+
+		fncPtr, ok := e.functions[node.Function.Value]
+		if !ok {
+			fmt.Printf("compile error: couldn't find function with name %s", node.Function.Value)
+		}
+
+		return entry.NewCall(fncPtr, args...)
+	case *parser.FunctionStatement:
+		retType := varTypeToLlvm(node.Type)
+		var paramTypes []*ir.Param
+
+		for _, p := range node.Params {
+			irParam := ir.NewParam(
+				p.Name.Value,
+				varTypeToLlvm(p.Type),
+			)
+			e.parameters[p.Name.Value] = irParam
+			paramTypes = append(paramTypes, irParam)
+		}
+
+		fncPtr := e.m.NewFunc(node.Name.Value, retType, paramTypes...)
+		e.functions[node.Name.Value] = fncPtr
+		block := fncPtr.NewBlock("")
+		e.functionBlocks[node.Name.Value] = block
+
+		for _, s := range node.Body.Statements {
+			e.Emit(s, block)
+		}
+
+		e.parameters = make(map[string]*ir.Param)
+		e.variables = make(map[string]*ir.InstAlloca)
+		e.varTypes = make(map[string]types.Type)
+		return fncPtr
+	case *parser.ReturnStatement:
+		val := e.Emit(node.Expr, entry)
+		entry.NewRet(val)
+		return val
 	}
 
 	return nil
@@ -97,6 +146,8 @@ func varTypeToLlvm(vt lexer.VarType) types.Type {
 		return nil
 	case lexer.Int:
 		return types.I64
+	case lexer.Int32:
+		return types.I32
 	}
 	return nil
 }

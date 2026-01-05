@@ -80,6 +80,7 @@ func (l *Lexer) NextToken() Token {
 		}
 
 		if util.IsAlpha(l.ch) {
+			l.readChar()
 			tok.Literal = l.readIdentifier()
 			tok.Type, tok.VarType = identLookup(tok.Literal)
 			return tok
@@ -101,9 +102,9 @@ func (l *Lexer) readInt() string {
 }
 
 func (l *Lexer) readIdentifier() string {
-	startPos := l.pos
+	startPos := l.pos - 1
 
-	for util.IsAlpha(l.ch) {
+	for util.IsAlphaNumeric(l.ch) {
 		l.readChar()
 	}
 
@@ -118,6 +119,8 @@ func identLookup(lit string) (TokenType, VarType) {
 	switch lit {
 	case "int":
 		return TYPE, Int
+	case "int32":
+		return TYPE, Int32
 	case "def":
 		return DEF, None
 	case "fnc":

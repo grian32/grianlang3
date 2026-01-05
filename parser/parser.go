@@ -83,7 +83,7 @@ func (p *Parser) parseIdentifier() Expression {
 }
 
 func (p *Parser) parseIntegerLiteral() Expression {
-	lit := &IntegerLiteral{Token: p.currToken}
+	lit := &IntegerLiteral{Token: p.currToken, Type: lexer.Int}
 
 	value, err := strconv.ParseInt(p.currToken.Literal, 0, 64)
 	if err != nil {
@@ -91,6 +91,10 @@ func (p *Parser) parseIntegerLiteral() Expression {
 	}
 
 	lit.Value = value
+	if p.peekTokenIs(lexer.IDENTIFIER) && p.peekToken.Literal == "i32" {
+		p.NextToken()
+		lit.Type = lexer.Int32
+	}
 
 	return lit
 }
@@ -215,9 +219,16 @@ func (p *Parser) parseFunctionStatement() Statement {
 		}
 	}
 
-	if !p.currTokenIs(lexer.RPAREN) {
-		return nil
+	if len(stmt.Params) == 0 {
+		if !p.expectPeek(lexer.RPAREN) {
+			return nil
+		}
+	} else {
+		if !p.currTokenIs(lexer.RPAREN) {
+			return nil
+		}
 	}
+
 	if !p.expectPeek(lexer.ARROW) {
 		return nil
 	}

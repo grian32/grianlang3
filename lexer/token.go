@@ -65,6 +65,7 @@ type VarType uint8
 const (
 	None VarType = iota
 	Int
+	Int32
 )
 
 func (vt VarType) String() string {
@@ -73,6 +74,8 @@ func (vt VarType) String() string {
 		return "None"
 	case Int:
 		return "Int"
+	case Int32:
+		return "Int32"
 	default:
 		return "Unknown"
 	}
