@@ -32,6 +32,8 @@ func New() *Emitter {
 
 	fnc := e.m.NewFunc("dbg_i64", types.Void, ir.NewParam("val", types.I64))
 	e.functions["dbg_i64"] = fnc
+	fnc = e.m.NewFunc("dbg_i32", types.Void, ir.NewParam("val", types.I64))
+	e.functions["dbg_i32"] = fnc
 	// main := e.m.NewFunc("main", types.I32)
 	// entry := main.NewBlock("")
 	// e.entry = entry
@@ -81,7 +83,10 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		entry.NewStore(right, vPtr)
 		return right
 	case *parser.AssignmentStatement:
-		vPtr, _ := e.variables[node.Name.Value]
+		vPtr, ok := e.variables[node.Name.Value]
+		if !ok {
+			fmt.Printf("compile error: couldn't find variable of name %s used in var assignment", node.Name.Value)
+		}
 		right := e.Emit(node.Right, entry)
 		entry.NewStore(right, vPtr)
 		return right
@@ -130,8 +135,18 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		block := fncPtr.NewBlock("")
 		e.functionBlocks[node.Name.Value] = block
 
+		foundRet := false
+
 		for _, s := range node.Body.Statements {
+			// ehh???
+			if _, ok := s.(*parser.ReturnStatement); !foundRet && ok {
+				foundRet = true
+			}
 			e.Emit(s, block)
+		}
+
+		if !foundRet {
+			block.NewRet(nil)
 		}
 
 		e.parameters = make(map[string]*ir.Param)
@@ -155,6 +170,8 @@ func varTypeToLlvm(vt lexer.VarType) types.Type {
 		return types.I64
 	case lexer.Int32:
 		return types.I32
+	case lexer.Void:
+		return types.Void
 	}
 	return nil
 }

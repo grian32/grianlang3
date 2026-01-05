@@ -133,6 +133,8 @@ func identLookup(lit string) (TokenType, VarType) {
 		return TYPE, Int
 	case "int32":
 		return TYPE, Int32
+	case "none":
+		return TYPE, Void
 	case "def":
 		return DEF, None
 	case "fnc":

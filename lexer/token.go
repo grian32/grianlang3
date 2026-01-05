@@ -75,12 +75,15 @@ const (
 	None VarType = iota
 	Int
 	Int32
+	Void
 )
 
 func (vt VarType) String() string {
 	switch vt {
 	case None:
 		return "None"
+	case Void:
+		return "Void"
 	case Int:
 		return "Int"
 	case Int32:
