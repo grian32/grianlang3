@@ -63,6 +63,13 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		switch node.Operator {
 		case "+":
 			return entry.NewAdd(left, right)
+		case "-":
+			return entry.NewSub(left, right)
+		case "*":
+			return entry.NewMul(left, right)
+		case "/":
+			// TODO: def behaviour for /0, intmin/-1
+			return entry.NewSDiv(left, right)
 		}
 	case *parser.DefStatement:
 		lt := varTypeToLlvm(node.Type)

@@ -20,6 +20,9 @@ const (
 
 var precedences = map[lexer.TokenType]byte{
 	lexer.PLUS:   SUM,
+	lexer.MINUS: SUM,
+	lexer.ASTERISK: PRODUCT,
+	lexer.SLASH: PRODUCT,
 	lexer.LPAREN: CALL,
 }
 
@@ -50,10 +53,13 @@ func New(l *lexer.Lexer) *Parser {
 	p.prefixParseFns = make(map[lexer.TokenType]prefixParseFn)
 	p.prefixParseFns[lexer.INT] = p.parseIntegerLiteral
 	p.prefixParseFns[lexer.IDENTIFIER] = p.parseIdentifier
-	//p.prefixParseFns[lexer.LPAREN] = p.parseGroupedExpression
+	p.prefixParseFns[lexer.LPAREN] = p.parseGroupedExpression
 
 	p.infixParseFns = make(map[lexer.TokenType]infixParseFn)
 	p.infixParseFns[lexer.PLUS] = p.parseInfixExpression
+	p.infixParseFns[lexer.MINUS] = p.parseInfixExpression
+	p.infixParseFns[lexer.SLASH] = p.parseInfixExpression
+	p.infixParseFns[lexer.ASTERISK] = p.parseInfixExpression
 	p.infixParseFns[lexer.LPAREN] = p.parseCallExpression
 
 	return p
@@ -80,6 +86,19 @@ func (p *Parser) parseInfixExpression(left Expression) Expression {
 
 func (p *Parser) parseIdentifier() Expression {
 	return &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
+}
+
+
+func (p *Parser) parseGroupedExpression() Expression {
+	p.NextToken()
+
+	exp := p.parseExpression(LOWEST)
+
+	if !p.expectPeek(lexer.RPAREN) {
+		return nil
+	}
+
+	return exp
 }
 
 func (p *Parser) parseIntegerLiteral() Expression {

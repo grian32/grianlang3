@@ -37,6 +37,8 @@ func (l *Lexer) peekChar() byte {
 
 var singleCharToken = map[byte]TokenType{
 	'+': PLUS,
+	'*': ASTERISK,
+	'/': SLASH,
 	';': SEMICOLON,
 	'=': ASSIGN,
 	'(': LPAREN,
@@ -68,6 +70,8 @@ func (l *Lexer) NextToken() Token {
 			l.readChar()
 			tok.Type = ARROW
 			tok.Literal = l.input[l.pos-2 : l.pos]
+		} else {
+			tok = newToken(MINUS, l.ch)
 		}
 	case 0:
 		tok.Literal = ""

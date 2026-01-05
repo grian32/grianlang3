@@ -4,6 +4,6 @@ fnc add(int a, int b) -> int {
 
 fnc main() -> int32 {
     def int x = 4;
-    dbg_i64(add(3, x))
+    dbg_i64(add((7-3)/x, x))
     return 0i32;
 }

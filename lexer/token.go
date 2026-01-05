@@ -5,6 +5,9 @@ type TokenType uint8
 const (
 	INT TokenType = iota
 	PLUS
+	MINUS
+	ASTERISK
+	SLASH
 	SEMICOLON
 	ASSIGN
 	IDENTIFIER
@@ -27,6 +30,12 @@ func (tt TokenType) String() string {
 		return "INT"
 	case PLUS:
 		return "PLUS"
+	case SLASH:
+		return "SLASH"
+	case ASTERISK:
+		return "ASTERISK"
+	case MINUS:
+		return "MINUS"
 	case SEMICOLON:
 		return "SEMICOLON"
 	case ASSIGN:
