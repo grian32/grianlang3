@@ -2,6 +2,7 @@ fnc add(int a, int b) -> int {
     return a+b
 }
 
+// this is the main function
 fnc main() -> int32 {
     def int x = 4;
     dbg_i64(add((7-3)/x, x))

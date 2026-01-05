@@ -55,6 +55,13 @@ func (l *Lexer) NextToken() Token {
 		l.readChar()
 	}
 
+	if l.ch == '/' && l.peekChar() == '/' {
+		for l.ch != '\n' {
+			l.readChar()
+		}
+		l.readChar()
+	}
+
 	sct, ok := singleCharToken[l.ch]
 	if ok {
 		tok = newToken(sct, l.ch)
@@ -70,9 +77,10 @@ func (l *Lexer) NextToken() Token {
 			l.readChar()
 			tok.Type = ARROW
 			tok.Literal = l.input[l.pos-2 : l.pos]
-		} else {
-			tok = newToken(MINUS, l.ch)
+
+			return tok
 		}
+		tok = newToken(MINUS, l.ch)
 	case 0:
 		tok.Literal = ""
 		tok.Type = EOF
