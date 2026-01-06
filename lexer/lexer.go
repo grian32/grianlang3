@@ -46,6 +46,7 @@ var singleCharToken = map[byte]TokenType{
 	'{': LBRACE,
 	'}': RBRACE,
 	',': COMMA,
+	'&': AMPERSAND,
 }
 
 func (l *Lexer) NextToken() Token {
@@ -94,7 +95,7 @@ func (l *Lexer) NextToken() Token {
 		if util.IsAlpha(l.ch) {
 			l.readChar()
 			tok.Literal = l.readIdentifier()
-			tok.Type, tok.VarType = identLookup(tok.Literal)
+			tok.Type, tok.VarType.Base = identLookup(tok.Literal)
 			return tok
 		}
 	}
@@ -127,7 +128,7 @@ func newToken(tt TokenType, ch byte) Token {
 	return Token{Type: tt, Literal: string(ch)}
 }
 
-func identLookup(lit string) (TokenType, VarType) {
+func identLookup(lit string) (TokenType, BaseVarType) {
 	switch lit {
 	case "int":
 		return TYPE, Int

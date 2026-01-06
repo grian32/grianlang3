@@ -19,11 +19,11 @@ const (
 )
 
 var precedences = map[lexer.TokenType]byte{
-	lexer.PLUS:   SUM,
-	lexer.MINUS: SUM,
+	lexer.PLUS:     SUM,
+	lexer.MINUS:    SUM,
 	lexer.ASTERISK: PRODUCT,
-	lexer.SLASH: PRODUCT,
-	lexer.LPAREN: CALL,
+	lexer.SLASH:    PRODUCT,
+	lexer.LPAREN:   CALL,
 }
 
 type (
@@ -54,6 +54,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.prefixParseFns[lexer.INT] = p.parseIntegerLiteral
 	p.prefixParseFns[lexer.IDENTIFIER] = p.parseIdentifier
 	p.prefixParseFns[lexer.LPAREN] = p.parseGroupedExpression
+	p.prefixParseFns[lexer.AMPERSAND] = p.parseReference
+	p.prefixParseFns[lexer.ASTERISK] = p.parseDereference
 
 	p.infixParseFns = make(map[lexer.TokenType]infixParseFn)
 	p.infixParseFns[lexer.PLUS] = p.parseInfixExpression
@@ -88,7 +90,6 @@ func (p *Parser) parseIdentifier() Expression {
 	return &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
 }
 
-
 func (p *Parser) parseGroupedExpression() Expression {
 	p.NextToken()
 
@@ -102,7 +103,8 @@ func (p *Parser) parseGroupedExpression() Expression {
 }
 
 func (p *Parser) parseIntegerLiteral() Expression {
-	lit := &IntegerLiteral{Token: p.currToken, Type: lexer.Int}
+	vt := lexer.VarType{Base: lexer.Int, Pointer: 0}
+	lit := &IntegerLiteral{Token: p.currToken, Type: vt}
 
 	value, err := strconv.ParseInt(p.currToken.Literal, 0, 64)
 	if err != nil {
@@ -110,12 +112,34 @@ func (p *Parser) parseIntegerLiteral() Expression {
 	}
 
 	lit.Value = value
+
 	if p.peekTokenIs(lexer.IDENTIFIER) && p.peekToken.Literal == "i32" {
 		p.NextToken()
-		lit.Type = lexer.Int32
+		lit.Type.Base = lexer.Int32
 	}
 
 	return lit
+}
+
+func (p *Parser) parseReference() Expression {
+	expr := &ReferenceExpression{Token: p.currToken}
+	p.NextToken()
+	rhs := p.parseExpression(LOWEST)
+	if ident, ok := rhs.(*IdentifierExpression); ok {
+		expr.Var = ident
+	}
+	return expr
+}
+
+func (p *Parser) parseDereference() Expression {
+	expr := &DereferenceExpression{Token: p.currToken}
+
+	p.NextToken()
+	rhs := p.parseExpression(LOWEST)
+	if ident, ok := rhs.(*IdentifierExpression); ok {
+		expr.Var = ident
+	}
+	return expr
 }
 
 func (p *Parser) ParseProgram() *Program {
@@ -164,15 +188,13 @@ func (p *Parser) parseCallExpression(left Expression) Expression {
 func (p *Parser) parseStatement() Statement {
 	if p.currTokenIs(lexer.DEF) {
 		return p.parseVarStatement()
-	} else if p.currTokenIs(lexer.IDENTIFIER) && p.peekTokenIs(lexer.ASSIGN) {
-		return p.parseAssignStatement()
 	} else if p.currTokenIs(lexer.RETURN) {
 		return p.parseReturnStatement()
 	} else if p.currTokenIs(lexer.FNC) {
 		return p.parseFunctionStatement()
 	}
 
-	return p.parseExpressionStatement()
+	return p.parseExpressionOrAssignmentStatement()
 }
 
 func (p *Parser) parseReturnStatement() Statement {
@@ -198,6 +220,17 @@ func (p *Parser) parseBlockStatement() *BlockStatement {
 	return bs
 }
 
+func (p *Parser) getPointers(vt *lexer.VarType) {
+	if !p.peekTokenIs(lexer.ASTERISK) {
+		return
+	}
+
+	for p.peekTokenIs(lexer.ASTERISK) {
+		vt.Pointer++
+		p.NextToken()
+	}
+}
+
 func (p *Parser) parseFunctionStatement() Statement {
 	stmt := &FunctionStatement{Token: p.currToken}
 
@@ -217,6 +250,7 @@ func (p *Parser) parseFunctionStatement() Statement {
 			return nil
 		}
 		paramType := p.currToken.VarType
+		p.getPointers(&paramType)
 		if !p.expectPeek(lexer.IDENTIFIER) {
 			return nil
 		}
@@ -255,6 +289,7 @@ func (p *Parser) parseFunctionStatement() Statement {
 		return nil
 	}
 	stmt.Type = p.currToken.VarType
+	p.getPointers(&stmt.Type)
 
 	if !p.expectPeek(lexer.LBRACE) {
 		return nil
@@ -268,18 +303,6 @@ func (p *Parser) parseFunctionStatement() Statement {
 	return stmt
 }
 
-func (p *Parser) parseAssignStatement() *AssignmentStatement {
-	stmt := &AssignmentStatement{Token: p.currToken}
-	stmt.Name = &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
-
-	p.NextToken() // skip ident
-	p.NextToken() // skip assign, prechecked by parseStatement
-
-	stmt.Right = p.parseExpression(LOWEST)
-
-	return stmt
-}
-
 func (p *Parser) parseVarStatement() *DefStatement {
 	stmt := &DefStatement{Token: p.currToken}
 
@@ -288,6 +311,7 @@ func (p *Parser) parseVarStatement() *DefStatement {
 	}
 
 	stmt.Type = p.currToken.VarType
+	p.getPointers(&stmt.Type)
 
 	if !p.expectPeek(lexer.IDENTIFIER) {
 		return nil
@@ -315,6 +339,44 @@ func (p *Parser) peekTokenIs(tt lexer.TokenType) bool {
 
 func (p *Parser) currTokenIs(tt lexer.TokenType) bool {
 	return p.currToken.Type == tt
+}
+
+func (p *Parser) parseAssignable() Expression {
+	if p.currTokenIs(lexer.IDENTIFIER) {
+		return &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
+	} else if p.currTokenIs(lexer.ASTERISK) { // deref
+		expr := &DereferenceExpression{Token: p.currToken}
+		p.NextToken()
+		expr.Var = p.parseAssignable()
+		return expr
+	}
+
+	p.Errors = append(p.Errors, fmt.Sprintf("invalid assign target: %s"), p.currToken.Type.String())
+	return nil
+}
+
+func (p *Parser) parseExpressionOrAssignmentStatement() Statement {
+	currTok := p.currToken
+	lhs := p.parseAssignable()
+	if lhs == nil {
+		return p.parseExpressionStatement()
+	}
+
+	// it is assignable if lhs != nil and an assignment if the next token is assign
+	if p.peekTokenIs(lexer.ASSIGN) {
+		stmt := &AssignmentStatement{Token: p.currToken}
+		p.NextToken()
+		p.NextToken()
+
+		stmt.Left = lhs
+		stmt.Right = p.parseExpression(LOWEST)
+		return stmt
+	}
+
+	return &ExpressionStatement{
+		Token:      currTok,
+		Expression: lhs,
+	}
 }
 
 func (p *Parser) parseExpressionStatement() Statement {

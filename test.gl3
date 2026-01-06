@@ -1,18 +1,10 @@
-fnc mod(int a) -> int {
-    def int aa = a;
-    aa = 7;
-    return aa;
+fnc mod(int* a) -> none {
+   *x = 4;
 }
 
-fnc display_i32(int32 stuff) -> none {
-    dbg_i32(stuff);
-}
-
-// this is the main function
 fnc main() -> int32 {
     def int x = 4;
-    def int result = mod(x);
-    dbg_i64(result);
-    display_i32(5i32);
+    mod(&x)
+    dbg_i64(x);
     return 0i32;
 }

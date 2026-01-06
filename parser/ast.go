@@ -95,14 +95,14 @@ func (ds *DefStatement) String() string {
 
 type AssignmentStatement struct {
 	Token lexer.Token
-	Name  *IdentifierExpression
+	Left  Expression
 	Right Expression
 }
 
 func (as *AssignmentStatement) statementNode()       { /* noop */ }
 func (as *AssignmentStatement) TokenLiteral() string { return as.Token.Literal }
 func (as *AssignmentStatement) String() string {
-	return as.Name.String() + " = " + as.Right.String()
+	return as.Left.String() + " = " + as.Right.String()
 }
 
 type IdentifierExpression struct {
@@ -198,3 +198,21 @@ func (ce *CallExpression) String() string {
 
 	return out.String()
 }
+
+type ReferenceExpression struct {
+	Token lexer.Token
+	Var   *IdentifierExpression
+}
+
+func (re *ReferenceExpression) expressionNode()      { /* noop */ }
+func (re *ReferenceExpression) TokenLiteral() string { return re.Token.Literal }
+func (re *ReferenceExpression) String() string       { return "&" + re.Var.String() }
+
+type DereferenceExpression struct {
+	Token lexer.Token
+	Var   Expression
+}
+
+func (de *DereferenceExpression) expressionNode()      { /* noop */ }
+func (de *DereferenceExpression) TokenLiteral() string { return de.Token.Literal }
+func (de *DereferenceExpression) String() string       { return "*" + de.Var.String() }

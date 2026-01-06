@@ -83,13 +83,17 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		entry.NewStore(right, vPtr)
 		return right
 	case *parser.AssignmentStatement:
-		vPtr, ok := e.variables[node.Name.Value]
-		if !ok {
-			fmt.Printf("compile error: couldn't find variable of name %s used in var assignment", node.Name.Value)
+		if ident, ok := node.Left.(*parser.IdentifierExpression); ok {
+			vPtr, ok := e.variables[ident.Value]
+			if !ok {
+				fmt.Printf("compile error: couldn't find variable of name %s used in var assignment", ident.Value)
+			}
+			right := e.Emit(node.Right, entry)
+			entry.NewStore(right, vPtr)
+			return right
 		}
-		right := e.Emit(node.Right, entry)
-		entry.NewStore(right, vPtr)
-		return right
+
+		return nil
 	case *parser.IdentifierExpression:
 		if param, ok := e.parameters[node.Value]; ok {
 			return param
@@ -163,15 +167,23 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 }
 
 func varTypeToLlvm(vt lexer.VarType) types.Type {
-	switch vt {
+	var baseType types.Type
+	switch vt.Base {
 	case lexer.None:
-		return nil
+		baseType = nil
 	case lexer.Int:
-		return types.I64
+		baseType = types.I64
 	case lexer.Int32:
-		return types.I32
+		baseType = types.I32
 	case lexer.Void:
-		return types.Void
+		baseType = types.Void
 	}
-	return nil
+
+	if baseType != nil {
+		for _ = range vt.Pointer {
+			baseType = &types.PointerType{ElemType: baseType}
+		}
+	}
+
+	return baseType
 }

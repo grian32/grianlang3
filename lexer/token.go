@@ -21,6 +21,7 @@ const (
 	RETURN
 	TYPE
 	ARROW
+	AMPERSAND
 	EOF
 )
 
@@ -62,6 +63,8 @@ func (tt TokenType) String() string {
 		return "TYPE"
 	case ARROW:
 		return "ARROW"
+	case AMPERSAND:
+		return "AMPERSAND"
 	case EOF:
 		return "EOF"
 	default:
@@ -69,17 +72,22 @@ func (tt TokenType) String() string {
 	}
 }
 
-type VarType uint8
+type VarType struct {
+	Base    BaseVarType
+	Pointer uint8
+}
+
+type BaseVarType uint8
 
 const (
-	None VarType = iota
+	None BaseVarType = iota
 	Int
 	Int32
 	Void
 )
 
-func (vt VarType) String() string {
-	switch vt {
+func (bvt BaseVarType) String() string {
+	switch bvt {
 	case None:
 		return "None"
 	case Void:
@@ -91,6 +99,16 @@ func (vt VarType) String() string {
 	default:
 		return "Unknown"
 	}
+}
+
+func (vt VarType) String() string {
+	bvt := vt.Base.String()
+
+	for _ = range vt.Pointer {
+		bvt += "*"
+	}
+
+	return bvt
 }
 
 type Token struct {
