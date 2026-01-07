@@ -24,6 +24,7 @@ var precedences = map[lexer.TokenType]byte{
 	lexer.ASTERISK: PRODUCT,
 	lexer.SLASH:    PRODUCT,
 	lexer.LPAREN:   CALL,
+	lexer.ASSIGN:   EQUALS,
 }
 
 type (
@@ -63,6 +64,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.infixParseFns[lexer.SLASH] = p.parseInfixExpression
 	p.infixParseFns[lexer.ASTERISK] = p.parseInfixExpression
 	p.infixParseFns[lexer.LPAREN] = p.parseCallExpression
+	p.infixParseFns[lexer.ASSIGN] = p.parseAssignExpression
 
 	return p
 }
@@ -131,14 +133,29 @@ func (p *Parser) parseReference() Expression {
 	return expr
 }
 
+func (p *Parser) parseAssignExpression(left Expression) Expression {
+	expr := &AssignmentExpression{Token: p.currToken}
+	switch left.(type) {
+	case *IdentifierExpression, *DereferenceExpression:
+		expr.Left = left
+	default:
+		p.Errors = append(p.Errors, fmt.Sprintf("got %T on lhs of assignment, expected ident or deref", left))
+	}
+
+	p.NextToken()
+	expr.Right = p.parseExpression(LOWEST)
+
+	return expr
+}
+
 func (p *Parser) parseDereference() Expression {
 	expr := &DereferenceExpression{Token: p.currToken}
 
 	p.NextToken()
-	rhs := p.parseExpression(LOWEST)
-	if ident, ok := rhs.(*IdentifierExpression); ok {
-		expr.Var = ident
+	if p.currTokenIs(lexer.IDENTIFIER) {
+		expr.Var = &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
 	}
+
 	return expr
 }
 
@@ -194,7 +211,7 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseFunctionStatement()
 	}
 
-	return p.parseExpressionOrAssignmentStatement()
+	return p.parseExpressionStatement()
 }
 
 func (p *Parser) parseReturnStatement() Statement {
@@ -353,30 +370,6 @@ func (p *Parser) parseAssignable() Expression {
 
 	p.Errors = append(p.Errors, fmt.Sprintf("invalid assign target: %s"), p.currToken.Type.String())
 	return nil
-}
-
-func (p *Parser) parseExpressionOrAssignmentStatement() Statement {
-	currTok := p.currToken
-	lhs := p.parseAssignable()
-	if lhs == nil {
-		return p.parseExpressionStatement()
-	}
-
-	// it is assignable if lhs != nil and an assignment if the next token is assign
-	if p.peekTokenIs(lexer.ASSIGN) {
-		stmt := &AssignmentStatement{Token: p.currToken}
-		p.NextToken()
-		p.NextToken()
-
-		stmt.Left = lhs
-		stmt.Right = p.parseExpression(LOWEST)
-		return stmt
-	}
-
-	return &ExpressionStatement{
-		Token:      currTok,
-		Expression: lhs,
-	}
 }
 
 func (p *Parser) parseExpressionStatement() Statement {
