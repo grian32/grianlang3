@@ -154,6 +154,8 @@ func (p *Parser) parseDereference() Expression {
 	p.NextToken()
 	if p.currTokenIs(lexer.IDENTIFIER) {
 		expr.Var = &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
+	} else {
+		expr.Var = p.parseExpression(PREFIX)
 	}
 
 	return expr

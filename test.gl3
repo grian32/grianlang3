@@ -1,10 +1,12 @@
-fnc mod(int* a) -> none {
-   *x = 4;
+fnc mod(int*** a) -> none {
+    ***a = 7;
 }
 
 fnc main() -> int32 {
     def int x = 4;
-    mod(&x)
+    def int* y = &x;
+    def int** z = &y;
+    mod(&z);
     dbg_i64(x);
     return 0i32;
 }

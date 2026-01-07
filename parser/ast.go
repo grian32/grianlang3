@@ -93,16 +93,16 @@ func (ds *DefStatement) String() string {
 	return "def " + ds.Type.String() + " " + ds.Name.String() + " = " + ds.Right.String()
 }
 
-type AssignmentStatement struct {
+type AssignmentExpression struct {
 	Token lexer.Token
 	Left  Expression
 	Right Expression
 }
 
-func (as *AssignmentStatement) statementNode()       { /* noop */ }
-func (as *AssignmentStatement) TokenLiteral() string { return as.Token.Literal }
-func (as *AssignmentStatement) String() string {
-	return as.Left.String() + " = " + as.Right.String()
+func (ae *AssignmentExpression) expressionNode()      { /* noop */ }
+func (ae *AssignmentExpression) TokenLiteral() string { return ae.Token.Literal }
+func (ae *AssignmentExpression) String() string {
+	return ae.Left.String() + " = " + ae.Right.String()
 }
 
 type IdentifierExpression struct {

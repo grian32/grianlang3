@@ -34,9 +34,8 @@ func New() *Emitter {
 	e.functions["dbg_i64"] = fnc
 	fnc = e.m.NewFunc("dbg_i32", types.Void, ir.NewParam("val", types.I64))
 	e.functions["dbg_i32"] = fnc
-	// main := e.m.NewFunc("main", types.I32)
-	// entry := main.NewBlock("")
-	// e.entry = entry
+	fnc = e.m.NewFunc("dbg_intptr", types.Void, ir.NewParam("val", types.I64Ptr))
+	e.functions["dbg_intptr"] = fnc
 	return e
 }
 
@@ -82,7 +81,7 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		e.varTypes[node.Name.Value] = lt
 		entry.NewStore(right, vPtr)
 		return right
-	case *parser.AssignmentStatement:
+	case *parser.AssignmentExpression:
 		if ident, ok := node.Left.(*parser.IdentifierExpression); ok {
 			vPtr, ok := e.variables[ident.Value]
 			if !ok {
@@ -90,6 +89,11 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 			}
 			right := e.Emit(node.Right, entry)
 			entry.NewStore(right, vPtr)
+			return right
+		} else if _, ok := node.Left.(*parser.DereferenceExpression); ok {
+			ptr := e.emitAddress(node.Left, entry)
+			right := e.Emit(node.Right, entry)
+			entry.NewStore(right, ptr)
 			return right
 		}
 
@@ -161,9 +165,45 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		val := e.Emit(node.Expr, entry)
 		entry.NewRet(val)
 		return val
+	case *parser.ReferenceExpression:
+		vPtr, ok := e.variables[node.Var.Value]
+		if !ok {
+			fmt.Printf("compile error: couldn't find variable with name %s in reference expr", node.Var.Value)
+		}
+		return vPtr
+	case *parser.DereferenceExpression:
+		ptr := e.Emit(node.Var, entry)
+
+		ptrTy, ok := ptr.Type().(*types.PointerType)
+		if !ok {
+			fmt.Printf("compile error: cannot deref non-ptr type %v\n", ptrTy)
+		}
+
+		return entry.NewLoad(ptrTy.ElemType, ptr)
 	}
 
 	return nil
+}
+
+// emitAdress literally only necessary because i need the vptr from ident expr, deref expr is same as e.emit lol
+func (e *Emitter) emitAddress(node parser.Node, entry *ir.Block) value.Value {
+	switch node := node.(type) {
+	case *parser.IdentifierExpression:
+		if param, ok := e.parameters[node.Value]; ok {
+			return param
+		}
+		vPtr, ok := e.variables[node.Value]
+		if !ok {
+			fmt.Printf("compile error: couldn't find variable with name %s in deref assignment", node.Value)
+		}
+		return vPtr
+	case *parser.DereferenceExpression:
+		ptr := e.Emit(node.Var, entry)
+		return ptr
+	default:
+		fmt.Printf("compile error: invalid node type for emitAddress\n")
+		return nil
+	}
 }
 
 func varTypeToLlvm(vt lexer.VarType) types.Type {
