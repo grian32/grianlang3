@@ -36,6 +36,8 @@ func New() *Emitter {
 	e.functions["dbg_i32"] = fnc
 	fnc = e.m.NewFunc("dbg_intptr", types.Void, ir.NewParam("val", types.I64Ptr))
 	e.functions["dbg_intptr"] = fnc
+	fnc = e.m.NewFunc("malloc", types.I32Ptr, ir.NewParam("val", types.I64Ptr))
+	e.functions["malloc"] = fnc
 	return e
 }
 
@@ -63,7 +65,14 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 
 		switch node.Operator {
 		case "+":
-			return entry.NewAdd(left, right)
+			{
+				if ptr, ok := left.Type().(*types.PointerType); ok {
+					if _, ok := right.Type().(*types.IntType); ok { // not sure if necessary
+						return entry.NewGetElementPtr(ptr.ElemType, left, right)
+					}
+				}
+				return entry.NewAdd(left, right)
+			}
 		case "-":
 			return entry.NewSub(left, right)
 		case "*":

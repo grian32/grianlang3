@@ -1,12 +1,8 @@
-fnc mod(int*** a) -> none {
-    ***a = 7;
-}
-
 fnc main() -> int32 {
-    def int x = 4;
-    def int* y = &x;
-    def int** z = &y;
-    mod(&z);
-    dbg_i64(x);
+    def int32* x = malloc(4*3);
+    *(x) = 7i32;
+    *(x+1) = 8i32;
+    *(x+2) = 9i32;
+    dbg_i64(*(x+1));
     return 0i32;
 }
