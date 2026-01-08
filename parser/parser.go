@@ -53,6 +53,7 @@ func New(l *lexer.Lexer) *Parser {
 
 	p.prefixParseFns = make(map[lexer.TokenType]prefixParseFn)
 	p.prefixParseFns[lexer.INT] = p.parseIntegerLiteral
+	p.prefixParseFns[lexer.MINUS] = p.parsePrefixExpression
 	p.prefixParseFns[lexer.IDENTIFIER] = p.parseIdentifier
 	p.prefixParseFns[lexer.LPAREN] = p.parseGroupedExpression
 	p.prefixParseFns[lexer.AMPERSAND] = p.parseReference
@@ -86,6 +87,19 @@ func (p *Parser) parseInfixExpression(left Expression) Expression {
 	precendece := p.currPrecedence()
 	p.NextToken()
 	expression.Right = p.parseExpression(precendece)
+
+	return expression
+}
+
+func (p *Parser) parsePrefixExpression() Expression {
+	expression := &PrefixExpression{
+		Token:    p.currToken,
+		Operator: p.currToken.Literal,
+	}
+
+	p.NextToken()
+
+	expression.Right = p.parseExpression(PREFIX)
 
 	return expression
 }

@@ -85,6 +85,11 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 			// TODO: def behaviour for /0, intmin/-1
 			return entry.NewSDiv(left, right)
 		}
+	case *parser.PrefixExpression:
+		// right := e.Emit(node.Right, entry);
+		if int, ok := node.Right.(*parser.IntegerLiteral); node.Operator == "-" && ok {
+			return constant.NewInt(varTypeToLlvm(int.Type).(*types.IntType), -int.Value)
+		}
 	case *parser.DefStatement:
 		lt := varTypeToLlvm(node.Type)
 		right := e.Emit(node.Right, entry)

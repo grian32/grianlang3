@@ -1,11 +1,5 @@
-fnc mod(bool* a) -> none {
-    *a = false;
-}
-
 fnc main() -> int32 {
-    def bool x = true;
-    dbg_bool(x);
-    mod(&x);
-    dbg_bool(x);
+    def int32 x = -1403i32;
+    dbg_i32(x);
     return 0i32;
 }

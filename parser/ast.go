@@ -226,3 +226,13 @@ type BooleanExpression struct {
 func (be *BooleanExpression) expressionNode()      { /* noop */ }
 func (be *BooleanExpression) TokenLiteral() string { return be.Token.Literal }
 func (be *BooleanExpression) String() string       { return fmt.Sprintf("%t", be.Value) }
+
+type PrefixExpression struct {
+	Token lexer.Token
+	Operator string
+	Right Expression
+}
+
+func (pe *PrefixExpression) expressionNode()      { /* noop */ }
+func (pe *PrefixExpression) TokenLiteral() string { return pe.Token.Literal }
+func (pe *PrefixExpression) String() string       { return "(" + pe.Operator + pe.Right.String() + ")" }
