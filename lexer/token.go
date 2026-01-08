@@ -1,5 +1,7 @@
 package lexer
 
+import "strings"
+
 type TokenType uint8
 
 const (
@@ -22,6 +24,8 @@ const (
 	TYPE
 	ARROW
 	AMPERSAND
+	TRUE
+	FALSE
 	EOF
 )
 
@@ -83,6 +87,7 @@ const (
 	None BaseVarType = iota
 	Int
 	Int32
+	Bool
 	Void
 )
 
@@ -96,19 +101,22 @@ func (bvt BaseVarType) String() string {
 		return "Int"
 	case Int32:
 		return "Int32"
+	case Bool:
+		return "Bool"
 	default:
 		return "Unknown"
 	}
 }
 
 func (vt VarType) String() string {
-	bvt := vt.Base.String()
+	var bvt strings.Builder;
+	bvt.WriteString(vt.Base.String())
 
 	for _ = range vt.Pointer {
-		bvt += "*"
+		bvt.WriteString("*")
 	}
 
-	return bvt
+	return bvt.String()
 }
 
 type Token struct {

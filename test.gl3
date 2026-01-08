@@ -1,8 +1,11 @@
+fnc mod(bool* a) -> none {
+    *a = false;
+}
+
 fnc main() -> int32 {
-    def int32* x = malloc(4*3);
-    *(x) = 7i32;
-    *(x+1) = 8i32;
-    *(x+2) = 9i32;
-    dbg_i64(*(x+1));
+    def bool x = true;
+    dbg_bool(x);
+    mod(&x);
+    dbg_bool(x);
     return 0i32;
 }

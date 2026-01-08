@@ -142,6 +142,12 @@ func identLookup(lit string) (TokenType, BaseVarType) {
 		return FNC, None
 	case "return":
 		return RETURN, None
+	case "bool":
+		return TYPE, Bool
+	case "true":
+		return TRUE, None
+	case "false":
+		return FALSE, None
 	}
 
 	return IDENTIFIER, None

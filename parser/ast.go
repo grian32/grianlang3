@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bytes"
+	"fmt"
 	"grianlang3/lexer"
 )
 
@@ -216,3 +217,12 @@ type DereferenceExpression struct {
 func (de *DereferenceExpression) expressionNode()      { /* noop */ }
 func (de *DereferenceExpression) TokenLiteral() string { return de.Token.Literal }
 func (de *DereferenceExpression) String() string       { return "*" + de.Var.String() }
+
+type BooleanExpression struct {
+	Token lexer.Token
+	Value bool
+}
+
+func (be *BooleanExpression) expressionNode()      { /* noop */ }
+func (be *BooleanExpression) TokenLiteral() string { return be.Token.Literal }
+func (be *BooleanExpression) String() string       { return fmt.Sprintf("%t", be.Value) }

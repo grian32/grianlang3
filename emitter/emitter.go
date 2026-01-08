@@ -36,8 +36,10 @@ func New() *Emitter {
 	e.functions["dbg_i32"] = fnc
 	fnc = e.m.NewFunc("dbg_intptr", types.Void, ir.NewParam("val", types.I64Ptr))
 	e.functions["dbg_intptr"] = fnc
-	fnc = e.m.NewFunc("malloc", types.I32Ptr, ir.NewParam("val", types.I64Ptr))
-	e.functions["malloc"] = fnc
+	fnc = e.m.NewFunc("dbg_bool", types.Void, ir.NewParam("val", types.I64Ptr))
+	e.functions["dbg_bool"] = fnc
+	// fnc = e.m.NewFunc("malloc", types.I32Ptr, ir.NewParam("val", types.I64Ptr))
+	// e.functions["malloc"] = fnc
 	return e
 }
 
@@ -59,6 +61,8 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 	case *parser.IntegerLiteral:
 		// sorta unsafe cast i think, will crash tho if incompatible so same behaviour? maybe better to have an error msg tho
 		return constant.NewInt(varTypeToLlvm(node.Type).(*types.IntType), node.Value)
+	case *parser.BooleanExpression:
+		return constant.NewInt(types.I1, boolToI1(node.Value))
 	case *parser.InfixExpression:
 		left := e.Emit(node.Left, entry)
 		right := e.Emit(node.Right, entry)
@@ -226,6 +230,8 @@ func varTypeToLlvm(vt lexer.VarType) types.Type {
 		baseType = types.I32
 	case lexer.Void:
 		baseType = types.Void
+	case lexer.Bool:
+		baseType = types.I1
 	}
 
 	if baseType != nil {
@@ -235,4 +241,13 @@ func varTypeToLlvm(vt lexer.VarType) types.Type {
 	}
 
 	return baseType
+}
+
+// returns a i64 as thats what the emit integer const function expects, means one less conv
+func boolToI1(b bool) int64 {
+	if b {
+		return 1;
+	}
+
+	return 0;
 }

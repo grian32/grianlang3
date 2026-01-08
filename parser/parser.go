@@ -57,6 +57,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.prefixParseFns[lexer.LPAREN] = p.parseGroupedExpression
 	p.prefixParseFns[lexer.AMPERSAND] = p.parseReference
 	p.prefixParseFns[lexer.ASTERISK] = p.parseDereference
+	p.prefixParseFns[lexer.TRUE] = p.parseBoolean
+	p.prefixParseFns[lexer.FALSE] = p.parseBoolean
 
 	p.infixParseFns = make(map[lexer.TokenType]infixParseFn)
 	p.infixParseFns[lexer.PLUS] = p.parseInfixExpression
@@ -121,6 +123,18 @@ func (p *Parser) parseIntegerLiteral() Expression {
 	}
 
 	return lit
+}
+
+func (p *Parser) parseBoolean() Expression {
+	expr := &BooleanExpression{Token: p.currToken}
+
+	if p.currTokenIs(lexer.TRUE) {
+		expr.Value = true
+	} else {
+		expr.Value = false
+	}
+
+	return expr
 }
 
 func (p *Parser) parseReference() Expression {
