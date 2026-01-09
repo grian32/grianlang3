@@ -39,8 +39,8 @@ func New() *Emitter {
 	e.functions["dbg_intptr"] = fnc
 	fnc = e.m.NewFunc("dbg_bool", types.Void, ir.NewParam("val", types.I64Ptr))
 	e.functions["dbg_bool"] = fnc
-	fnc = e.m.NewFunc("malloc", types.I32Ptr, ir.NewParam("val", types.I64Ptr))
-	e.functions["malloc"] = fnc
+	//fnc = e.m.NewFunc("malloc", types.I32Ptr, ir.NewParam("val", types.I64Ptr))
+	//e.functions["malloc"] = fnc
 	return e
 }
 
@@ -80,7 +80,7 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 			if node.Operator == "+" {
 				return entry.NewGetElementPtr(ptr.ElemType, left, right)
 			} else if node.Operator == "-" {
-				// TODO: kind of a hack?
+				// TODO: kind of a hack? also wont work with variables or whatever, even worse
 				rightVal := right.(*constant.Int).X
 				negRightVal := new(big.Int).Neg(rightVal)
 				c := constant.NewInt(right.Type().(*types.IntType), negRightVal.Int64())
@@ -105,9 +105,17 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		fmt.Printf("compile error: operator %s invalid for types %T, %T", node.Operator, node.Left, node.Right)
 		return nil
 	case *parser.PrefixExpression:
-		// right := e.Emit(node.Right, entry);
-		if int, ok := node.Right.(*parser.IntegerLiteral); node.Operator == "-" && ok {
-			return constant.NewInt(varTypeToLlvm(int.Type).(*types.IntType), -int.Value)
+		//if integer, ok := node.Right.(*parser.IntegerLiteral); node.Operator == "-" && ok {
+		//	return constant.NewInt(varTypeToLlvm(integer.Type).(*types.IntType), -integer.Value)
+		//}
+		if node.Operator == "!" {
+			right := e.Emit(node.Right, entry)
+			trueVal := constant.NewInt(types.I1, 1)
+			return entry.NewXor(right, trueVal)
+		} else if node.Operator == "-" {
+			right := e.Emit(node.Right, entry)
+			zero := constant.NewInt(right.Type().(*types.IntType), 0)
+			return entry.NewSub(zero, right)
 		}
 	case *parser.DefStatement:
 		lt := varTypeToLlvm(node.Type)

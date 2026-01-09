@@ -26,6 +26,9 @@ const (
 	AMPERSAND
 	TRUE
 	FALSE
+	NOT
+	LAND
+	LOR
 	EOF
 )
 
@@ -109,7 +112,7 @@ func (bvt BaseVarType) String() string {
 }
 
 func (vt VarType) String() string {
-	var bvt strings.Builder;
+	var bvt strings.Builder
 	bvt.WriteString(vt.Base.String())
 
 	for _ = range vt.Pointer {

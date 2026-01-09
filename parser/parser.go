@@ -25,6 +25,7 @@ var precedences = map[lexer.TokenType]byte{
 	lexer.SLASH:    PRODUCT,
 	lexer.LPAREN:   CALL,
 	lexer.ASSIGN:   EQUALS,
+	lexer.NOT:      PREFIX,
 }
 
 type (
@@ -60,6 +61,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.prefixParseFns[lexer.ASTERISK] = p.parseDereference
 	p.prefixParseFns[lexer.TRUE] = p.parseBoolean
 	p.prefixParseFns[lexer.FALSE] = p.parseBoolean
+	p.prefixParseFns[lexer.NOT] = p.parsePrefixExpression
 
 	p.infixParseFns = make(map[lexer.TokenType]infixParseFn)
 	p.infixParseFns[lexer.PLUS] = p.parseInfixExpression

@@ -46,7 +46,7 @@ var singleCharToken = map[byte]TokenType{
 	'{': LBRACE,
 	'}': RBRACE,
 	',': COMMA,
-	'&': AMPERSAND,
+	'!': NOT,
 }
 
 func (l *Lexer) NextToken() Token {
@@ -82,6 +82,26 @@ func (l *Lexer) NextToken() Token {
 			return tok
 		}
 		tok = newToken(MINUS, l.ch)
+	case '&':
+		if l.peekChar() == '&' {
+			l.readChar()
+			l.readChar()
+			tok.Type = LAND
+			tok.Literal = l.input[l.pos-2 : l.pos]
+
+			return tok
+		}
+
+		tok = newToken(AMPERSAND, l.ch)
+	case '|':
+		if l.peekChar() == '|' {
+			l.readChar()
+			l.readChar()
+			tok.Type = LOR
+			tok.Literal = l.input[l.pos-2 : l.pos]
+
+			return tok
+		}
 	case 0:
 		tok.Literal = ""
 		tok.Type = EOF

@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
+	"grianlang3/emitter"
 	"grianlang3/lexer"
 	"grianlang3/parser"
-	"grianlang3/emitter"
 	"os"
 	"os/exec"
 )
@@ -24,7 +24,7 @@ func main() {
 
 	program := p.ParseProgram()
 
-	// fmt.Printf("%s\n", program.String())
+	//fmt.Printf("%s\n", program.String())
 
 	e := emitter.New()
 
