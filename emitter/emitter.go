@@ -254,6 +254,11 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		return entry.NewLoad(ptrTy.ElemType, ptr)
 	case *parser.CastExpression:
 		src := e.Emit(node.Expr, entry)
+		srcType := src.Type()
+		if srcType == types.I1 {
+			return entry.NewZExt(src, varTypeToLlvm(node.Type))
+		}
+
 		dstSize := getSizeForVarType(node.Type)
 		srcSize := getSizeForLlvmType(src.Type())
 

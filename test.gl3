@@ -1,7 +1,5 @@
 fnc main() -> int32 {
-    def int32 x = 7i32;
-    def int y = x as int;
-    y = (9i32 as int);
-    dbg_i64(y);
+    def bool x = true;
+    dbg_i32((x as int32));
     return 0i32;
 }
