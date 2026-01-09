@@ -88,6 +88,12 @@ func (l *Lexer) NextToken() Token {
 		tok.Literal = ""
 		tok.Type = EOF
 	default:
+		if l.ch == '0' && l.peekChar() == 'x' {
+			tok.Literal = l.readHexaInt()
+			tok.Type = INT
+			return tok
+		}
+
 		if util.IsDigit(l.ch) {
 			tok.Literal = l.readInt()
 			tok.Type = INT
@@ -104,6 +110,18 @@ func (l *Lexer) NextToken() Token {
 
 	l.readChar()
 	return tok
+}
+
+func (l *Lexer) readHexaInt() string {
+	startPos := l.pos
+	l.readChar()
+	l.readChar()
+
+	for util.IsHexaNumeral(l.ch) {
+		l.readChar()
+	}
+
+	return l.input[startPos:l.pos]
 }
 
 func (l *Lexer) readInt() string {
