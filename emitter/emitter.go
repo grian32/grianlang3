@@ -134,14 +134,12 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		fmt.Printf("compile error: operator %s invalid for types %T(%s), %T(%s)", node.Operator, node.Left, node.Left.String(), node.Right, node.Right.String())
 		return nil
 	case *parser.PrefixExpression:
-		//if integer, ok := node.Right.(*parser.IntegerLiteral); node.Operator == "-" && ok {
-		//	return constant.NewInt(varTypeToLlvm(integer.Type).(*types.IntType), -integer.Value)
-		//}
-		if node.Operator == "!" {
+		switch node.Operator {
+		case "!":
 			right := e.Emit(node.Right, entry)
 			trueVal := constant.NewInt(types.I1, 1)
 			return entry.NewXor(right, trueVal)
-		} else if node.Operator == "-" {
+		case "-":
 			right := e.Emit(node.Right, entry)
 			zero := constant.NewInt(right.Type().(*types.IntType), 0)
 			return entry.NewSub(zero, right)
