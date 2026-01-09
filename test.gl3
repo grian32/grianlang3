@@ -1,5 +1,5 @@
 fnc main() -> int32 {
-    def bool x = true;
+    def int32 x = 75i32;
     dbg_i32((x as int32));
     return 0i32;
 }

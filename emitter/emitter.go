@@ -48,9 +48,22 @@ func (e *Emitter) Module() *ir.Module {
 	return e.m
 }
 
+// TODO: maybe look into ditching this, serves its purposes, but feels a bit wasteful
 var infixIntOpTypes = map[types.Type]struct{}{
 	types.I64: {},
 	types.I32: {},
+}
+
+var llvmIntTypes = map[types.Type]struct{}{
+	types.I1:  {},
+	types.I32: {},
+	types.I64: {},
+}
+
+var varTypeIntTypes = map[lexer.BaseVarType]struct{}{
+	lexer.Bool:  {},
+	lexer.Int:   {},
+	lexer.Int32: {},
 }
 
 func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
@@ -255,18 +268,33 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 	case *parser.CastExpression:
 		src := e.Emit(node.Expr, entry)
 		srcType := src.Type()
-		if srcType == types.I1 {
-			return entry.NewZExt(src, varTypeToLlvm(node.Type))
-		}
+		_, leftIntOk := llvmIntTypes[srcType]
+		_, rightIntOk := varTypeIntTypes[node.Type.Base]
 
-		dstSize := getSizeForVarType(node.Type)
-		srcSize := getSizeForLlvmType(src.Type())
+		if leftIntOk && rightIntOk {
+			if srcType == types.I1 {
+				return entry.NewZExt(src, varTypeToLlvm(node.Type))
+			}
 
-		if srcSize < dstSize {
-			return entry.NewSExt(src, varTypeToLlvm(node.Type))
-		} else {
-			return entry.NewTrunc(src, varTypeToLlvm(node.Type))
+			dstSize := getSizeForVarType(node.Type)
+			srcSize := getSizeForLlvmType(src.Type())
+
+			if srcSize < dstSize {
+				return entry.NewSExt(src, varTypeToLlvm(node.Type))
+			} else if srcSize > dstSize {
+				return entry.NewTrunc(src, varTypeToLlvm(node.Type))
+			} else {
+				// same size, no cast necessary
+				return src
+			}
 		}
+		/** c bitcast behaviour
+		  int x = 1073741941; // 0100 0000 0000 0000 0000 0000 0111 0101 = 1073741941; as float = 2.somethingsomething
+		  int* xx = &x;
+		  float* fx = (float*)xx;
+		  printf("%.100f", *fx); == 2.somethingsomething
+		  return 0;
+		*/
 	}
 
 	return nil
