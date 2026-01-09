@@ -236,3 +236,13 @@ type PrefixExpression struct {
 func (pe *PrefixExpression) expressionNode()      { /* noop */ }
 func (pe *PrefixExpression) TokenLiteral() string { return pe.Token.Literal }
 func (pe *PrefixExpression) String() string       { return "(" + pe.Operator + pe.Right.String() + ")" }
+
+type CastExpression struct {
+	Token lexer.Token
+	Expr Expression
+	Type lexer.VarType
+}
+
+func (ce *CastExpression) expressionNode()      { /* noop */ }
+func (ce *CastExpression) TokenLiteral() string { return ce.Token.Literal }
+func (ce *CastExpression) String() string       { return ce.Expr.String() + " as " + ce.Type.String() }

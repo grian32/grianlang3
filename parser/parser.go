@@ -14,6 +14,7 @@ const (
 	LAND
 	EQUALS      // ==
 	LESSGREATER // > or <
+	CAST
 	SUM         // +
 	PRODUCT     // *
 	PREFIX      // -X or !X
@@ -37,6 +38,7 @@ var precedences = map[lexer.TokenType]byte{
 	lexer.LT:       LESSGREATER,
 	lexer.GTEQ:     LESSGREATER,
 	lexer.LTEQ:     LESSGREATER,
+	lexer.AS: 		CAST,
 }
 
 type (
@@ -89,6 +91,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.infixParseFns[lexer.NOTEQ] = p.parseInfixExpression
 	p.infixParseFns[lexer.LPAREN] = p.parseCallExpression
 	p.infixParseFns[lexer.ASSIGN] = p.parseAssignExpression
+	p.infixParseFns[lexer.AS] = p.parseCastExpression
 
 	return p
 }
@@ -158,6 +161,21 @@ func (p *Parser) parseIntegerLiteral() Expression {
 	}
 
 	return lit
+}
+
+func (p *Parser) parseCastExpression(left Expression) Expression {
+	expr := &CastExpression{Token: p.currToken}
+	expr.Expr = left
+
+	if !p.expectPeek(lexer.TYPE) {
+		return nil
+	}
+
+	castType := p.currToken.VarType
+	p.getPointers(&castType)
+	expr.Type = castType
+
+	return expr
 }
 
 func (p *Parser) parseBoolean() Expression {

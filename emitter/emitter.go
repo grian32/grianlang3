@@ -252,6 +252,16 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		}
 
 		return entry.NewLoad(ptrTy.ElemType, ptr)
+	case *parser.CastExpression:
+		src := e.Emit(node.Expr, entry)
+		dstSize := getSizeForVarType(node.Type)
+		srcSize := getSizeForLlvmType(src.Type())
+
+		if srcSize < dstSize {
+			return entry.NewSExt(src, varTypeToLlvm(node.Type))
+		} else {
+			return entry.NewTrunc(src, varTypeToLlvm(node.Type))
+		}
 	}
 
 	return nil
@@ -300,6 +310,36 @@ func varTypeToLlvm(vt lexer.VarType) types.Type {
 	}
 
 	return baseType
+}
+
+func getSizeForVarType(vt lexer.VarType) int64 {
+	if vt.Pointer > 0 {
+		return 8
+	}
+	switch vt.Base {
+	case lexer.Bool:
+		return 1
+	case lexer.Int32:
+		return 4
+	case lexer.Int:
+		return 8
+	}
+
+	return 0
+}
+
+func getSizeForLlvmType(lt types.Type) int64 {
+	switch lt := lt.(type) {
+	case *types.IntType:
+		if lt.BitSize < 8 {
+			return 1
+		}
+		return int64(lt.BitSize / 8)
+	case *types.PointerType:
+		return 8
+	}
+
+	return 0
 }
 
 // returns a i64 as thats what the emit integer const function expects, means one less conv

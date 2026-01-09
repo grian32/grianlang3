@@ -36,6 +36,7 @@ const (
 	LTEQ
 	GT
 	GTEQ
+	AS
 	EOF
 )
 

@@ -69,7 +69,6 @@ func (l *Lexer) NextToken() Token {
 		return tok
 	}
 
-	// TODO: pretty sure i can abstract the 2 char stuff to some function
 	switch l.ch {
 	case '-':
 		tok = l.doubleCharToken('>', MINUS, ARROW)
@@ -169,6 +168,8 @@ func identLookup(lit string) (TokenType, BaseVarType) {
 		return TRUE, None
 	case "false":
 		return FALSE, None
+	case "as":
+		return AS, None
 	}
 
 	return IDENTIFIER, None
