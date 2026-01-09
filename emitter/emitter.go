@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"grianlang3/lexer"
 	"grianlang3/parser"
+	"math/big"
 
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
@@ -38,13 +39,18 @@ func New() *Emitter {
 	e.functions["dbg_intptr"] = fnc
 	fnc = e.m.NewFunc("dbg_bool", types.Void, ir.NewParam("val", types.I64Ptr))
 	e.functions["dbg_bool"] = fnc
-	// fnc = e.m.NewFunc("malloc", types.I32Ptr, ir.NewParam("val", types.I64Ptr))
-	// e.functions["malloc"] = fnc
+	fnc = e.m.NewFunc("malloc", types.I32Ptr, ir.NewParam("val", types.I64Ptr))
+	e.functions["malloc"] = fnc
 	return e
 }
 
 func (e *Emitter) Module() *ir.Module {
 	return e.m
+}
+
+var infixIntOpTypes = map[types.Type]struct{}{
+	types.I64: {},
+	types.I32: {},
 }
 
 func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
@@ -67,24 +73,37 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		left := e.Emit(node.Left, entry)
 		right := e.Emit(node.Right, entry)
 
-		switch node.Operator {
-		case "+":
-			{
-				if ptr, ok := left.Type().(*types.PointerType); ok {
-					if _, ok := right.Type().(*types.IntType); ok { // not sure if necessary
-						return entry.NewGetElementPtr(ptr.ElemType, left, right)
-					}
-				}
-				return entry.NewAdd(left, right)
+		_, leftOk := infixIntOpTypes[left.Type()]
+		_, rightOk := infixIntOpTypes[right.Type()]
+
+		if ptr, ok := left.Type().(*types.PointerType); ok && rightOk {
+			if node.Operator == "+" {
+				return entry.NewGetElementPtr(ptr.ElemType, left, right)
+			} else if node.Operator == "-" {
+				// TODO: kind of a hack?
+				rightVal := right.(*constant.Int).X
+				negRightVal := new(big.Int).Neg(rightVal)
+				c := constant.NewInt(right.Type().(*types.IntType), negRightVal.Int64())
+				return entry.NewGetElementPtr(ptr.ElemType, left, c)
 			}
-		case "-":
-			return entry.NewSub(left, right)
-		case "*":
-			return entry.NewMul(left, right)
-		case "/":
-			// TODO: def behaviour for /0, intmin/-1
-			return entry.NewSDiv(left, right)
 		}
+
+		if leftOk && rightOk {
+			switch node.Operator {
+			case "+":
+				return entry.NewAdd(left, right)
+			case "-":
+				return entry.NewSub(left, right)
+			case "*":
+				return entry.NewMul(left, right)
+			case "/":
+				// TODO: def behaviour for /0, intmin/-1
+				return entry.NewSDiv(left, right)
+			}
+		}
+
+		fmt.Printf("compile error: operator %s invalid for types %T, %T", node.Operator, node.Left, node.Right)
+		return nil
 	case *parser.PrefixExpression:
 		// right := e.Emit(node.Right, entry);
 		if int, ok := node.Right.(*parser.IntegerLiteral); node.Operator == "-" && ok {
@@ -251,8 +270,8 @@ func varTypeToLlvm(vt lexer.VarType) types.Type {
 // returns a i64 as thats what the emit integer const function expects, means one less conv
 func boolToI1(b bool) int64 {
 	if b {
-		return 1;
+		return 1
 	}
 
-	return 0;
+	return 0
 }
