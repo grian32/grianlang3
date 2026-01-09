@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"grianlang3/lexer"
 	"grianlang3/parser"
-	"math/big"
 
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
@@ -39,8 +38,8 @@ func New() *Emitter {
 	e.functions["dbg_intptr"] = fnc
 	fnc = e.m.NewFunc("dbg_bool", types.Void, ir.NewParam("val", types.I64Ptr))
 	e.functions["dbg_bool"] = fnc
-	//fnc = e.m.NewFunc("malloc", types.I32Ptr, ir.NewParam("val", types.I64Ptr))
-	//e.functions["malloc"] = fnc
+	fnc = e.m.NewFunc("malloc", types.I32Ptr, ir.NewParam("val", types.I64Ptr))
+	e.functions["malloc"] = fnc
 	return e
 }
 
@@ -80,11 +79,10 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 			if node.Operator == "+" {
 				return entry.NewGetElementPtr(ptr.ElemType, left, right)
 			} else if node.Operator == "-" {
-				// TODO: kind of a hack? also wont work with variables or whatever, even worse
-				rightVal := right.(*constant.Int).X
-				negRightVal := new(big.Int).Neg(rightVal)
-				c := constant.NewInt(right.Type().(*types.IntType), negRightVal.Int64())
-				return entry.NewGetElementPtr(ptr.ElemType, left, c)
+				intType := right.Type().(*types.IntType)
+				zero := constant.NewInt(intType, 0)
+				negRight := entry.NewSub(zero, right)
+				return entry.NewGetElementPtr(ptr.ElemType, left, negRight)
 			}
 		}
 
