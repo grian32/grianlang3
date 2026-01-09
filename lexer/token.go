@@ -5,7 +5,8 @@ import "strings"
 type TokenType uint8
 
 const (
-	INT TokenType = iota
+	UNKNOWN TokenType = iota
+	INT
 	PLUS
 	MINUS
 	ASTERISK
@@ -78,6 +79,28 @@ func (tt TokenType) String() string {
 		return "ARROW"
 	case AMPERSAND:
 		return "AMPERSAND"
+	case TRUE:
+		return "TRUE"
+	case FALSE:
+		return "FALSE"
+	case NOT:
+		return "NOT"
+	case LAND:
+		return "LAND"
+	case LOR:
+		return "LOR"
+	case EQ:
+		return "EQ"
+	case NOTEQ:
+		return "NOTEQ"
+	case LT:
+		return "LT"
+	case LTEQ:
+		return "LTEQ"
+	case GT:
+		return "GT"
+	case GTEQ:
+		return "GTEQ"
 	case EOF:
 		return "EOF"
 	default:

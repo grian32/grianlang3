@@ -72,79 +72,19 @@ func (l *Lexer) NextToken() Token {
 	// TODO: pretty sure i can abstract the 2 char stuff to some function
 	switch l.ch {
 	case '-':
-		if l.peekChar() == '>' {
-			l.readChar()
-			l.readChar()
-			tok.Type = ARROW
-			tok.Literal = l.input[l.pos-2 : l.pos]
-
-			return tok
-		}
-		tok = newToken(MINUS, l.ch)
+		tok = l.doubleCharToken('>', MINUS, ARROW)
 	case '&':
-		if l.peekChar() == '&' {
-			l.readChar()
-			l.readChar()
-			tok.Type = LAND
-			tok.Literal = l.input[l.pos-2 : l.pos]
-
-			return tok
-		}
-
-		tok = newToken(AMPERSAND, l.ch)
+		tok = l.doubleCharToken('&', AMPERSAND, LAND)
 	case '|':
-		if l.peekChar() == '|' {
-			l.readChar()
-			l.readChar()
-			tok.Type = LOR
-			tok.Literal = l.input[l.pos-2 : l.pos]
-
-			return tok
-		}
+		tok = l.doubleCharToken('|', UNKNOWN, LOR)
 	case '=':
-		if l.peekChar() == '=' {
-			l.readChar()
-			l.readChar()
-			tok.Type = EQ
-			tok.Literal = l.input[l.pos-2 : l.pos]
-
-			return tok
-		}
-
-		tok = newToken(ASSIGN, l.ch)
+		tok = l.doubleCharToken('=', ASSIGN, EQ)
 	case '!':
-		if l.peekChar() == '=' {
-			l.readChar()
-			l.readChar()
-			tok.Type = NOTEQ
-			tok.Literal = l.input[l.pos-2 : l.pos]
-
-			return tok
-		}
-
-		tok = newToken(NOT, l.ch)
+		tok = l.doubleCharToken('=', NOT, NOTEQ)
 	case '<':
-		if l.peekChar() == '=' {
-			l.readChar()
-			l.readChar()
-			tok.Type = LTEQ
-			tok.Literal = l.input[l.pos-2 : l.pos]
-
-			return tok
-		}
-
-		tok = newToken(LT, l.ch)
+		tok = l.doubleCharToken('=', LT, LTEQ)
 	case '>':
-		if l.peekChar() == '=' {
-			l.readChar()
-			l.readChar()
-			tok.Type = GTEQ
-			tok.Literal = l.input[l.pos-2 : l.pos]
-
-			return tok
-		}
-
-		tok = newToken(GT, l.ch)
+		tok = l.doubleCharToken('=', GT, GTEQ)
 	case 0:
 		tok.Literal = ""
 		tok.Type = EOF
@@ -189,6 +129,24 @@ func (l *Lexer) readIdentifier() string {
 
 func newToken(tt TokenType, ch byte) Token {
 	return Token{Type: tt, Literal: string(ch)}
+}
+
+func (l *Lexer) doubleCharToken(char2 byte, tt TokenType, tt2 TokenType) Token {
+	var tok Token
+
+	if l.peekChar() == char2 {
+		l.readChar()
+		l.readChar()
+		tok.Type = tt2
+		tok.Literal = l.input[l.pos-2 : l.pos]
+		return tok
+	}
+
+	if tt != UNKNOWN {
+		tok = newToken(tt, l.ch)
+	}
+
+	return tok
 }
 
 func identLookup(lit string) (TokenType, BaseVarType) {
