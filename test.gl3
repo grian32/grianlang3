@@ -1,11 +1,6 @@
 fnc main() -> int32 {
-    def int32* x = malloc(4*3);
-    *(x) = 1i32;
-    *(x+1) = 2i32;
-    *(x+2) = 3i32;
-    dbg_i32(*(x+2));
-    def int32* secondElem = x+1;
-    def int neg = 1;
-    dbg_i32(*(secondElem-neg));
+    def int32 a = 1i32;
+    def int32 b = 2i32;
+    dbg_bool(2i32 != 2i32);
     return 0i32;
 }

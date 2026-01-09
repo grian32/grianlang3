@@ -29,6 +29,8 @@ const (
 	NOT
 	LAND
 	LOR
+	EQ
+	NOTEQ
 	EOF
 )
 

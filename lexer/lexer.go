@@ -40,13 +40,11 @@ var singleCharToken = map[byte]TokenType{
 	'*': ASTERISK,
 	'/': SLASH,
 	';': SEMICOLON,
-	'=': ASSIGN,
 	'(': LPAREN,
 	')': RPAREN,
 	'{': LBRACE,
 	'}': RBRACE,
 	',': COMMA,
-	'!': NOT,
 }
 
 func (l *Lexer) NextToken() Token {
@@ -102,6 +100,28 @@ func (l *Lexer) NextToken() Token {
 
 			return tok
 		}
+	case '=':
+		if l.peekChar() == '=' {
+			l.readChar()
+			l.readChar()
+			tok.Type = EQ
+			tok.Literal = l.input[l.pos-2 : l.pos]
+
+			return tok
+		}
+
+		tok = newToken(ASSIGN, l.ch)
+	case '!':
+		if l.peekChar() == '=' {
+			l.readChar()
+			l.readChar()
+			tok.Type = NOTEQ
+			tok.Literal = l.input[l.pos-2 : l.pos]
+
+			return tok
+		}
+
+		tok = newToken(NOT, l.ch)
 	case 0:
 		tok.Literal = ""
 		tok.Type = EOF

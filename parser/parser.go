@@ -9,6 +9,9 @@ import (
 const (
 	_ byte = iota
 	LOWEST
+	ASSIGN
+	LOR
+	LAND
 	EQUALS      // ==
 	LESSGREATER // > or <
 	SUM         // +
@@ -24,8 +27,12 @@ var precedences = map[lexer.TokenType]byte{
 	lexer.ASTERISK: PRODUCT,
 	lexer.SLASH:    PRODUCT,
 	lexer.LPAREN:   CALL,
-	lexer.ASSIGN:   EQUALS,
+	lexer.ASSIGN:   ASSIGN,
 	lexer.NOT:      PREFIX,
+	lexer.LOR:      LOR,
+	lexer.LAND:     LAND,
+	lexer.EQ:       EQUALS,
+	lexer.NOTEQ:    EQUALS,
 }
 
 type (
@@ -68,6 +75,10 @@ func New(l *lexer.Lexer) *Parser {
 	p.infixParseFns[lexer.MINUS] = p.parseInfixExpression
 	p.infixParseFns[lexer.SLASH] = p.parseInfixExpression
 	p.infixParseFns[lexer.ASTERISK] = p.parseInfixExpression
+	p.infixParseFns[lexer.LAND] = p.parseInfixExpression
+	p.infixParseFns[lexer.LOR] = p.parseInfixExpression
+	p.infixParseFns[lexer.EQ] = p.parseInfixExpression
+	p.infixParseFns[lexer.NOTEQ] = p.parseInfixExpression
 	p.infixParseFns[lexer.LPAREN] = p.parseCallExpression
 	p.infixParseFns[lexer.ASSIGN] = p.parseAssignExpression
 

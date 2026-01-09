@@ -7,6 +7,7 @@ import (
 
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
+	"github.com/llir/llvm/ir/enum"
 	"github.com/llir/llvm/ir/types"
 	"github.com/llir/llvm/ir/value"
 )
@@ -38,8 +39,8 @@ func New() *Emitter {
 	e.functions["dbg_intptr"] = fnc
 	fnc = e.m.NewFunc("dbg_bool", types.Void, ir.NewParam("val", types.I64Ptr))
 	e.functions["dbg_bool"] = fnc
-	fnc = e.m.NewFunc("malloc", types.I32Ptr, ir.NewParam("val", types.I64Ptr))
-	e.functions["malloc"] = fnc
+	//fnc = e.m.NewFunc("malloc", types.I32Ptr, ir.NewParam("val", types.I64Ptr))
+	//e.functions["malloc"] = fnc
 	return e
 }
 
@@ -72,21 +73,24 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		left := e.Emit(node.Left, entry)
 		right := e.Emit(node.Right, entry)
 
-		_, leftOk := infixIntOpTypes[left.Type()]
-		_, rightOk := infixIntOpTypes[right.Type()]
+		leftType := left.Type()
+		rightType := right.Type()
 
-		if ptr, ok := left.Type().(*types.PointerType); ok && rightOk {
+		_, leftIntOk := infixIntOpTypes[leftType]
+		_, rightIntOk := infixIntOpTypes[rightType]
+
+		if ptr, ok := leftType.(*types.PointerType); ok && rightIntOk {
 			if node.Operator == "+" {
 				return entry.NewGetElementPtr(ptr.ElemType, left, right)
 			} else if node.Operator == "-" {
-				intType := right.Type().(*types.IntType)
+				intType := rightType.(*types.IntType)
 				zero := constant.NewInt(intType, 0)
 				negRight := entry.NewSub(zero, right)
 				return entry.NewGetElementPtr(ptr.ElemType, left, negRight)
 			}
 		}
 
-		if leftOk && rightOk {
+		if leftIntOk && rightIntOk && leftType == rightType {
 			switch node.Operator {
 			case "+":
 				return entry.NewAdd(left, right)
@@ -100,7 +104,26 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 			}
 		}
 
-		fmt.Printf("compile error: operator %s invalid for types %T, %T", node.Operator, node.Left, node.Right)
+		if leftType == types.I1 && rightType == types.I1 {
+			switch node.Operator {
+			case "&&":
+				return entry.NewAnd(left, right)
+			case "||":
+				return entry.NewOr(left, right)
+			}
+		}
+
+		// works atm  since all ive got is ints and bools but needs to be extended l8r
+		if leftType == rightType {
+			switch node.Operator {
+			case "==":
+				return entry.NewICmp(enum.IPredEQ, left, right)
+			case "!=":
+				return entry.NewICmp(enum.IPredNE, left, right)
+			}
+		}
+
+		fmt.Printf("compile error: operator %s invalid for types %T(%s), %T(%s)", node.Operator, node.Left, node.Left.String(), node.Right, node.Right.String())
 		return nil
 	case *parser.PrefixExpression:
 		//if integer, ok := node.Right.(*parser.IntegerLiteral); node.Operator == "-" && ok {
