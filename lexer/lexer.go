@@ -69,6 +69,7 @@ func (l *Lexer) NextToken() Token {
 		return tok
 	}
 
+	// TODO: pretty sure i can abstract the 2 char stuff to some function
 	switch l.ch {
 	case '-':
 		if l.peekChar() == '>' {
@@ -122,6 +123,28 @@ func (l *Lexer) NextToken() Token {
 		}
 
 		tok = newToken(NOT, l.ch)
+	case '<':
+		if l.peekChar() == '=' {
+			l.readChar()
+			l.readChar()
+			tok.Type = LTEQ
+			tok.Literal = l.input[l.pos-2 : l.pos]
+
+			return tok
+		}
+
+		tok = newToken(LT, l.ch)
+	case '>':
+		if l.peekChar() == '=' {
+			l.readChar()
+			l.readChar()
+			tok.Type = GTEQ
+			tok.Literal = l.input[l.pos-2 : l.pos]
+
+			return tok
+		}
+
+		tok = newToken(GT, l.ch)
 	case 0:
 		tok.Literal = ""
 		tok.Type = EOF

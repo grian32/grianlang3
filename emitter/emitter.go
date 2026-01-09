@@ -101,6 +101,14 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 			case "/":
 				// TODO: def behaviour for /0, intmin/-1
 				return entry.NewSDiv(left, right)
+			case "<":
+				return entry.NewICmp(enum.IPredSLT, left, right)
+			case ">":
+				return entry.NewICmp(enum.IPredSGT, left, right)
+			case "<=":
+				return entry.NewICmp(enum.IPredSLE, left, right)
+			case ">=":
+				return entry.NewICmp(enum.IPredSGE, left, right)
 			}
 		}
 

@@ -31,6 +31,10 @@ const (
 	LOR
 	EQ
 	NOTEQ
+	LT
+	LTEQ
+	GT
+	GTEQ
 	EOF
 )
 

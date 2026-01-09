@@ -33,6 +33,10 @@ var precedences = map[lexer.TokenType]byte{
 	lexer.LAND:     LAND,
 	lexer.EQ:       EQUALS,
 	lexer.NOTEQ:    EQUALS,
+	lexer.GT:       LESSGREATER,
+	lexer.LT:       LESSGREATER,
+	lexer.GTEQ:     LESSGREATER,
+	lexer.LTEQ:     LESSGREATER,
 }
 
 type (
@@ -78,6 +82,10 @@ func New(l *lexer.Lexer) *Parser {
 	p.infixParseFns[lexer.LAND] = p.parseInfixExpression
 	p.infixParseFns[lexer.LOR] = p.parseInfixExpression
 	p.infixParseFns[lexer.EQ] = p.parseInfixExpression
+	p.infixParseFns[lexer.LT] = p.parseInfixExpression
+	p.infixParseFns[lexer.GT] = p.parseInfixExpression
+	p.infixParseFns[lexer.LTEQ] = p.parseInfixExpression
+	p.infixParseFns[lexer.GTEQ] = p.parseInfixExpression
 	p.infixParseFns[lexer.NOTEQ] = p.parseInfixExpression
 	p.infixParseFns[lexer.LPAREN] = p.parseCallExpression
 	p.infixParseFns[lexer.ASSIGN] = p.parseAssignExpression

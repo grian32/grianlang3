@@ -1,6 +1,5 @@
 fnc main() -> int32 {
     def int32 a = 1i32;
-    def int32 b = 2i32;
-    dbg_bool(2i32 != 2i32);
+    dbg_bool(a <= 4i32);
     return 0i32;
 }
