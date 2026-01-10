@@ -15,5 +15,5 @@ void dbg_bool(bool val) {
 }
 
 void dbg_float(float val) {
-    printf("dbgfloat: %f\n", val);
+    printf("dbgfloat: %.50f\n", val);
 }

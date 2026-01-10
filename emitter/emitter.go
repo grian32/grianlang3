@@ -303,8 +303,15 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		src := e.Emit(node.Expr, entry)
 		srcType := src.Type()
 		dstType := varTypeToLlvm(node.Type)
+		// TODO: could be faster if bare bool comparison? prob
 		_, leftIntOk := llvmIntTypes[srcType]
 		_, rightIntOk := varTypeIntTypes[node.Type.Base]
+
+		_, leftFloatOk := src.Type().(*types.FloatType)
+		rightFloatOk := node.Type.Base == lexer.Float && node.Type.Pointer == 0
+
+		_, leftPtrOk := src.Type().(*types.PointerType)
+		rightPtrOk := node.Type.Pointer > 0
 
 		if leftIntOk && rightIntOk && node.Type.Pointer == 0 {
 			if srcType == types.I1 {
@@ -330,15 +337,21 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 				fmt.Printf("compile warning: pointer to int cast may truncate")
 			}
 			return entry.NewPtrToInt(src, varTypeToLlvm(node.Type))
+		} else if leftIntOk && rightFloatOk {
+			return entry.NewSIToFP(src, dstType)
+		} else if leftFloatOk && rightIntOk {
+			return entry.NewFPToSI(src, dstType)
+		} else if leftPtrOk && rightPtrOk {
+			/** c bitcast behaviour
+			  int x = 1073741941; // 0100 0000 0000 0000 0000 0000 0111 0101 = 1073741941; as float = 2.somethingsomething
+			  int* xx = &x;
+			  float* fx = (float*)xx;
+			  printf("%.100f", *fx); == 2.somethingsomething
+			  return 0;
+			*/
+			return entry.NewBitCast(src, dstType)
 		}
 
-		/** c bitcast behaviour
-		  int x = 1073741941; // 0100 0000 0000 0000 0000 0000 0111 0101 = 1073741941; as float = 2.somethingsomething
-		  int* xx = &x;
-		  float* fx = (float*)xx;
-		  printf("%.100f", *fx); == 2.somethingsomething
-		  return 0;
-		*/
 	}
 
 	return nil
