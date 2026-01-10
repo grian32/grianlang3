@@ -156,9 +156,15 @@ func (p *Parser) parseIntegerLiteral() Expression {
 
 	lit.Value = value
 
-	if p.peekTokenIs(lexer.IDENTIFIER) && p.peekToken.Literal == "i32" {
+	if p.peekTokenIs(lexer.IDENTIFIER) {
+		if p.peekToken.Literal == "i32" {
+			lit.Type.Base = lexer.Int32
+		} else if p.peekToken.Literal == "i16" {
+			lit.Type.Base = lexer.Int16
+		} else if p.peekToken.Literal == "i8" {
+			lit.Type.Base = lexer.Int8
+		}
 		p.NextToken()
-		lit.Type.Base = lexer.Int32
 	}
 
 	return lit

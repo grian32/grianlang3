@@ -1,7 +1,5 @@
 fnc main() -> int32 {
-    def int32 x = 1073741941i32;
-    def int32* xx = &x;
-    def float* fx = xx as float*;
-    dbg_float(*fx);
+    def int16 x = 278i16;
+    dbg_i16(x);
     return 0i32;
 }

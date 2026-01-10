@@ -33,8 +33,12 @@ func New() *Emitter {
 
 	fnc := e.m.NewFunc("dbg_i64", types.Void, ir.NewParam("val", types.I64))
 	e.functions["dbg_i64"] = fnc
-	fnc = e.m.NewFunc("dbg_i32", types.Void, ir.NewParam("val", types.I64))
+	fnc = e.m.NewFunc("dbg_i32", types.Void, ir.NewParam("val", types.I32))
 	e.functions["dbg_i32"] = fnc
+	fnc = e.m.NewFunc("dbg_i16", types.Void, ir.NewParam("val", types.I16))
+	e.functions["dbg_i16"] = fnc
+	fnc = e.m.NewFunc("dbg_i8", types.Void, ir.NewParam("val", types.I8))
+	e.functions["dbg_i8"] = fnc
 	fnc = e.m.NewFunc("dbg_float", types.Void, ir.NewParam("val", types.Float))
 	e.functions["dbg_float"] = fnc
 	fnc = e.m.NewFunc("dbg_bool", types.Void, ir.NewParam("val", types.I64Ptr))
@@ -50,20 +54,26 @@ func (e *Emitter) Module() *ir.Module {
 
 // TODO: maybe look into ditching this, serves its purposes, but feels a bit wasteful
 var infixIntOpTypes = map[types.Type]struct{}{
-	types.I64: {},
+	types.I8:  {},
+	types.I16: {},
 	types.I32: {},
+	types.I64: {},
 }
 
 var llvmIntTypes = map[types.Type]struct{}{
 	types.I1:  {},
+	types.I8:  {},
+	types.I16: {},
 	types.I32: {},
 	types.I64: {},
 }
 
 var varTypeIntTypes = map[lexer.BaseVarType]struct{}{
 	lexer.Bool:  {},
-	lexer.Int:   {},
+	lexer.Int8:  {},
+	lexer.Int16: {},
 	lexer.Int32: {},
+	lexer.Int:   {},
 }
 
 func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
@@ -387,6 +397,10 @@ func varTypeToLlvm(vt lexer.VarType) types.Type {
 		baseType = types.I64
 	case lexer.Int32:
 		baseType = types.I32
+	case lexer.Int8:
+		baseType = types.I8
+	case lexer.Int16:
+		baseType = types.I16
 	case lexer.Void:
 		baseType = types.Void
 	case lexer.Bool:
@@ -409,8 +423,10 @@ func getSizeForVarType(vt lexer.VarType) int64 {
 		return 8
 	}
 	switch vt.Base {
-	case lexer.Bool:
+	case lexer.Bool, lexer.Int8:
 		return 1
+	case lexer.Int16:
+		return 2
 	case lexer.Int32, lexer.Float:
 		return 4
 	case lexer.Int:

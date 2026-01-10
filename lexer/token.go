@@ -125,6 +125,8 @@ const (
 	None BaseVarType = iota
 	Int
 	Int32
+	Int16
+	Int8
 	Bool
 	Void
 	Float
