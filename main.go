@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
+	"grianlang3/emitter"
 	"grianlang3/lexer"
 	"grianlang3/parser"
-	"grianlang3/emitter"
 	"os"
 	"os/exec"
 )

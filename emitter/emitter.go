@@ -268,26 +268,36 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 	case *parser.CastExpression:
 		src := e.Emit(node.Expr, entry)
 		srcType := src.Type()
+		dstType := varTypeToLlvm(node.Type)
 		_, leftIntOk := llvmIntTypes[srcType]
 		_, rightIntOk := varTypeIntTypes[node.Type.Base]
 
-		if leftIntOk && rightIntOk {
+		if leftIntOk && rightIntOk && node.Type.Pointer == 0 {
 			if srcType == types.I1 {
-				return entry.NewZExt(src, varTypeToLlvm(node.Type))
+				return entry.NewZExt(src, dstType)
 			}
 
 			dstSize := getSizeForVarType(node.Type)
 			srcSize := getSizeForLlvmType(src.Type())
 
 			if srcSize < dstSize {
-				return entry.NewSExt(src, varTypeToLlvm(node.Type))
+				return entry.NewSExt(src, dstType)
 			} else if srcSize > dstSize {
-				return entry.NewTrunc(src, varTypeToLlvm(node.Type))
+				return entry.NewTrunc(src, dstType)
 			} else {
 				// same size, no cast necessary
 				return src
 			}
+		} else if leftIntOk && node.Type.Pointer > 0 {
+			return entry.NewIntToPtr(src, dstType)
+		} else if _, ok := src.Type().(*types.PointerType); ok && rightIntOk && node.Type.Pointer == 0 {
+			if node.Type.Base != lexer.Int {
+				// non 64 bit which is llvm default on most (i.e 64bit) systems
+				fmt.Printf("compiler warning: pointer to int cast may truncate")
+			}
+			return entry.NewPtrToInt(src, varTypeToLlvm(node.Type))
 		}
+
 		/** c bitcast behaviour
 		  int x = 1073741941; // 0100 0000 0000 0000 0000 0000 0111 0101 = 1073741941; as float = 2.somethingsomething
 		  int* xx = &x;

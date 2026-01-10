@@ -1,9 +1,6 @@
 fnc main() -> int32 {
-    def int x = 0xABCDEF123456789;
-    // == 773738363261118345
-    dbg_i64(x);
-    def int32 y = 0xABi32;
-    // == 171
-    dbg_i32(y);
+    def int32 x = 4i32;
+    def int32* y = &x;
+    dbg_i64(y as int);
     return 0i32;
 }
