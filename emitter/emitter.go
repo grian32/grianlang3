@@ -94,6 +94,10 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		_, leftIntOk := infixIntOpTypes[leftType]
 		_, rightIntOk := infixIntOpTypes[rightType]
 
+		// TODO: extend when doubles etc
+		_, leftFloatOk := leftType.(*types.FloatType)
+		_, rightFloatOk := rightType.(*types.FloatType)
+
 		if ptr, ok := leftType.(*types.PointerType); ok && rightIntOk {
 			if node.Operator == "+" {
 				return entry.NewGetElementPtr(ptr.ElemType, left, right)
@@ -124,6 +128,36 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 				return entry.NewICmp(enum.IPredSLE, left, right)
 			case ">=":
 				return entry.NewICmp(enum.IPredSGE, left, right)
+			case "==":
+				return entry.NewICmp(enum.IPredEQ, left, right)
+			case "!=":
+				return entry.NewICmp(enum.IPredNE, left, right)
+			}
+		}
+
+		if leftFloatOk && rightFloatOk {
+			switch node.Operator {
+			case "+":
+				return entry.NewFAdd(left, right)
+			case "-":
+				return entry.NewFSub(left, right)
+			case "*":
+				return entry.NewFMul(left, right)
+			case "/":
+				// TODO: def behaviour for /0, intmin/-1
+				return entry.NewFDiv(left, right)
+			case "<":
+				return entry.NewFCmp(enum.FPredOLT, left, right)
+			case ">":
+				return entry.NewFCmp(enum.FPredOGT, left, right)
+			case "<=":
+				return entry.NewFCmp(enum.FPredOLE, left, right)
+			case ">=":
+				return entry.NewFCmp(enum.FPredOGE, left, right)
+			case "==":
+				return entry.NewFCmp(enum.FPredOEQ, left, right)
+			case "!=":
+				return entry.NewFCmp(enum.FPredONE, left, right)
 			}
 		}
 
@@ -136,28 +170,26 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 			}
 		}
 
-		// works atm  since all ive got is ints and bools but needs to be extended l8r
-		if leftType == rightType {
-			switch node.Operator {
-			case "==":
-				return entry.NewICmp(enum.IPredEQ, left, right)
-			case "!=":
-				return entry.NewICmp(enum.IPredNE, left, right)
-			}
-		}
-
 		fmt.Printf("compile error: operator %s invalid for types %T(%s), %T(%s)", node.Operator, node.Left, node.Left.String(), node.Right, node.Right.String())
 		return nil
 	case *parser.PrefixExpression:
 		switch node.Operator {
 		case "!":
 			right := e.Emit(node.Right, entry)
+			// TODO: check right == i1
 			trueVal := constant.NewInt(types.I1, 1)
 			return entry.NewXor(right, trueVal)
 		case "-":
 			right := e.Emit(node.Right, entry)
-			zero := constant.NewInt(right.Type().(*types.IntType), 0)
-			return entry.NewSub(zero, right)
+			_, rightIntOk := llvmIntTypes[right.Type()]
+			_, rightFloatOk := right.Type().(*types.FloatType)
+			if rightIntOk {
+				zero := constant.NewInt(right.Type().(*types.IntType), 0)
+				return entry.NewSub(zero, right)
+			} else if rightFloatOk {
+				zero := constant.NewFloat(types.Float, 0)
+				return entry.NewFSub(zero, right)
+			}
 		}
 	case *parser.DefStatement:
 		lt := varTypeToLlvm(node.Type)

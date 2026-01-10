@@ -1,6 +1,5 @@
 fnc main() -> int32 {
-    def float x = 123.4567;
-    def float* z = &x;
-    dbg_float(*z);
+    def bool x = 1.0 != 1.1
+    dbg_bool(x);
     return 0i32;
 }
