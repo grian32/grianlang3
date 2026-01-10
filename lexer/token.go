@@ -7,6 +7,7 @@ type TokenType uint8
 const (
 	UNKNOWN TokenType = iota
 	INT
+	FLOAT
 	PLUS
 	MINUS
 	ASTERISK
@@ -104,6 +105,10 @@ func (tt TokenType) String() string {
 		return "GTEQ"
 	case EOF:
 		return "EOF"
+	case AS:
+		return "AS"
+	case FLOAT:
+		return "FLOAT"
 	default:
 		return "UNKNOWN"
 	}
@@ -122,6 +127,7 @@ const (
 	Int32
 	Bool
 	Void
+	Float
 )
 
 func (bvt BaseVarType) String() string {

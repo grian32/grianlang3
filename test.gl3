@@ -1,6 +1,6 @@
 fnc main() -> int32 {
-    def int32 x = 4i32;
-    def int32* y = &x;
-    dbg_i64(y as int);
+    def float x = 123.4567;
+    def float* z = &x;
+    dbg_float(*z);
     return 0i32;
 }

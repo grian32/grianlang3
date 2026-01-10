@@ -15,9 +15,9 @@ const (
 	EQUALS      // ==
 	LESSGREATER // > or <
 	CAST
-	SUM         // +
-	PRODUCT     // *
-	PREFIX      // -X or !X
+	SUM     // +
+	PRODUCT // *
+	PREFIX  // -X or !X
 	CALL
 	INDEX
 )
@@ -38,7 +38,7 @@ var precedences = map[lexer.TokenType]byte{
 	lexer.LT:       LESSGREATER,
 	lexer.GTEQ:     LESSGREATER,
 	lexer.LTEQ:     LESSGREATER,
-	lexer.AS: 		CAST,
+	lexer.AS:       CAST,
 }
 
 type (
@@ -67,6 +67,7 @@ func New(l *lexer.Lexer) *Parser {
 
 	p.prefixParseFns = make(map[lexer.TokenType]prefixParseFn)
 	p.prefixParseFns[lexer.INT] = p.parseIntegerLiteral
+	p.prefixParseFns[lexer.FLOAT] = p.parseFloatLiteral
 	p.prefixParseFns[lexer.MINUS] = p.parsePrefixExpression
 	p.prefixParseFns[lexer.IDENTIFIER] = p.parseIdentifier
 	p.prefixParseFns[lexer.LPAREN] = p.parseGroupedExpression
@@ -159,6 +160,20 @@ func (p *Parser) parseIntegerLiteral() Expression {
 		p.NextToken()
 		lit.Type.Base = lexer.Int32
 	}
+
+	return lit
+}
+
+func (p *Parser) parseFloatLiteral() Expression {
+	vt := lexer.VarType{Base: lexer.Float, Pointer: 0}
+	lit := &FloatLiteral{Token: p.currToken, Type: vt}
+
+	value, err := strconv.ParseFloat(p.currToken.Literal, 32)
+	if err != nil {
+		p.Errors = append(p.Errors, fmt.Sprintf("could not parse %q as float", p.currToken.Literal))
+	}
+
+	lit.Value = float32(value)
 
 	return lit
 }

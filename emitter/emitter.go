@@ -35,8 +35,8 @@ func New() *Emitter {
 	e.functions["dbg_i64"] = fnc
 	fnc = e.m.NewFunc("dbg_i32", types.Void, ir.NewParam("val", types.I64))
 	e.functions["dbg_i32"] = fnc
-	fnc = e.m.NewFunc("dbg_intptr", types.Void, ir.NewParam("val", types.I64Ptr))
-	e.functions["dbg_intptr"] = fnc
+	fnc = e.m.NewFunc("dbg_float", types.Void, ir.NewParam("val", types.Float))
+	e.functions["dbg_float"] = fnc
 	fnc = e.m.NewFunc("dbg_bool", types.Void, ir.NewParam("val", types.I64Ptr))
 	e.functions["dbg_bool"] = fnc
 	//fnc = e.m.NewFunc("malloc", types.I32Ptr, ir.NewParam("val", types.I64Ptr))
@@ -82,6 +82,8 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		return constant.NewInt(varTypeToLlvm(node.Type).(*types.IntType), node.Value)
 	case *parser.BooleanExpression:
 		return constant.NewInt(types.I1, boolToI1(node.Value))
+	case *parser.FloatLiteral:
+		return constant.NewFloat(types.Float, float64(node.Value))
 	case *parser.InfixExpression:
 		left := e.Emit(node.Left, entry)
 		right := e.Emit(node.Right, entry)
@@ -293,7 +295,7 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		} else if _, ok := src.Type().(*types.PointerType); ok && rightIntOk && node.Type.Pointer == 0 {
 			if node.Type.Base != lexer.Int {
 				// non 64 bit which is llvm default on most (i.e 64bit) systems
-				fmt.Printf("compiler warning: pointer to int cast may truncate")
+				fmt.Printf("compile warning: pointer to int cast may truncate")
 			}
 			return entry.NewPtrToInt(src, varTypeToLlvm(node.Type))
 		}
@@ -344,6 +346,8 @@ func varTypeToLlvm(vt lexer.VarType) types.Type {
 		baseType = types.Void
 	case lexer.Bool:
 		baseType = types.I1
+	case lexer.Float:
+		baseType = types.Float
 	}
 
 	if baseType != nil {
@@ -362,7 +366,7 @@ func getSizeForVarType(vt lexer.VarType) int64 {
 	switch vt.Base {
 	case lexer.Bool:
 		return 1
-	case lexer.Int32:
+	case lexer.Int32, lexer.Float:
 		return 4
 	case lexer.Int:
 		return 8

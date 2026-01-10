@@ -95,8 +95,7 @@ func (l *Lexer) NextToken() Token {
 		}
 
 		if util.IsDigit(l.ch) {
-			tok.Literal = l.readInt()
-			tok.Type = INT
+			tok.Literal, tok.Type = l.readNumber()
 			return tok
 		}
 
@@ -124,14 +123,18 @@ func (l *Lexer) readHexaInt() string {
 	return l.input[startPos:l.pos]
 }
 
-func (l *Lexer) readInt() string {
+func (l *Lexer) readNumber() (string, TokenType) {
 	startPos := l.pos
+	tt := INT
 
-	for util.IsDigit(l.ch) {
+	for util.IsDigit(l.ch) || l.ch == '.' {
+		if l.ch == '.' {
+			tt = FLOAT
+		}
 		l.readChar()
 	}
 
-	return l.input[startPos:l.pos]
+	return l.input[startPos:l.pos], tt
 }
 
 func (l *Lexer) readIdentifier() string {
@@ -186,6 +189,8 @@ func identLookup(lit string) (TokenType, BaseVarType) {
 		return TRUE, None
 	case "false":
 		return FALSE, None
+	case "float":
+		return TYPE, Float
 	case "as":
 		return AS, None
 	}

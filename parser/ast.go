@@ -228,9 +228,9 @@ func (be *BooleanExpression) TokenLiteral() string { return be.Token.Literal }
 func (be *BooleanExpression) String() string       { return fmt.Sprintf("%t", be.Value) }
 
 type PrefixExpression struct {
-	Token lexer.Token
+	Token    lexer.Token
 	Operator string
-	Right Expression
+	Right    Expression
 }
 
 func (pe *PrefixExpression) expressionNode()      { /* noop */ }
@@ -239,10 +239,20 @@ func (pe *PrefixExpression) String() string       { return "(" + pe.Operator + p
 
 type CastExpression struct {
 	Token lexer.Token
-	Expr Expression
-	Type lexer.VarType
+	Expr  Expression
+	Type  lexer.VarType
 }
 
 func (ce *CastExpression) expressionNode()      { /* noop */ }
 func (ce *CastExpression) TokenLiteral() string { return ce.Token.Literal }
 func (ce *CastExpression) String() string       { return ce.Expr.String() + " as " + ce.Type.String() }
+
+type FloatLiteral struct {
+	Token lexer.Token
+	Value float32
+	Type  lexer.VarType // opts : Float only
+}
+
+func (fl *FloatLiteral) expressionNode()      { /* noop */ }
+func (fl *FloatLiteral) TokenLiteral() string { return fl.Token.Literal }
+func (fl *FloatLiteral) String() string       { return fl.Token.Literal + "(" + fl.Type.String() + ")" }
