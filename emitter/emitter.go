@@ -37,18 +37,7 @@ func New() *Emitter {
 	e.parametersGlTypes = make(map[string]lexer.VarType)
 	e.varGlTypes = make(map[string]lexer.VarType)
 
-	fnc := e.m.NewFunc("dbg_i64", types.Void, ir.NewParam("val", types.I64))
-	e.functions["dbg_i64"] = fnc
-	fnc = e.m.NewFunc("dbg_i32", types.Void, ir.NewParam("val", types.I32))
-	e.functions["dbg_i32"] = fnc
-	fnc = e.m.NewFunc("dbg_i16", types.Void, ir.NewParam("val", types.I16))
-	e.functions["dbg_i16"] = fnc
-	fnc = e.m.NewFunc("dbg_i8", types.Void, ir.NewParam("val", types.I8))
-	e.functions["dbg_i8"] = fnc
-	fnc = e.m.NewFunc("dbg_float", types.Void, ir.NewParam("val", types.Float))
-	e.functions["dbg_float"] = fnc
-	fnc = e.m.NewFunc("dbg_bool", types.Void, ir.NewParam("val", types.I64Ptr))
-	e.functions["dbg_bool"] = fnc
+	AddBuiltins(e)
 	//fnc = e.m.NewFunc("malloc", types.I32Ptr, ir.NewParam("val", types.I64Ptr))
 	//e.functions["malloc"] = fnc
 	return e
@@ -59,11 +48,15 @@ func (e *Emitter) Module() *ir.Module {
 }
 
 // TODO: maybe look into ditching this, serves its purposes, but feels a bit wasteful
-var infixIntOpTypes = map[types.Type]struct{}{
-	types.I8:  {},
-	types.I16: {},
-	types.I32: {},
-	types.I64: {},
+var infixIntOpTypes = map[lexer.BaseVarType]struct{}{
+	lexer.Int8:   {},
+	lexer.Int16:  {},
+	lexer.Int32:  {},
+	lexer.Int:    {},
+	lexer.Uint8:  {},
+	lexer.Uint16: {},
+	lexer.Uint32: {},
+	lexer.Uint:   {},
 }
 
 var llvmIntTypes = map[types.Type]struct{}{
@@ -89,6 +82,13 @@ var glTypeSInts = map[lexer.BaseVarType]struct{}{
 	lexer.Int:   {},
 }
 
+var glTypeUInts = map[lexer.BaseVarType]struct{}{
+	lexer.Uint8:  {},
+	lexer.Uint16: {},
+	lexer.Uint32: {},
+	lexer.Uint:   {},
+}
+
 func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.VarType) {
 	switch node := node.(type) {
 	case *parser.Program:
@@ -102,21 +102,37 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 	case *parser.ExpressionStatement:
 		return e.Emit(node.Expression, entry)
 	case *parser.IntegerLiteral:
-		// sorta unsafe cast i think, will crash tho if incompatible so same behaviour? maybe better to have an error msg tho
-		return constant.NewInt(varTypeToLlvm(node.Type).(*types.IntType), node.Value), node.Type
+		/**
+		fnc main() -> int32 {
+			    def uint x = 18446744073709551616u64;
+			    dbg_u64(x);
+			    return 0i32;
+			}
+		NOTE: vaguely strange behaviour on such input, seems to always trunc to -1 even if ...17 or ...18 so on?
+		maybe llvm quirk, not sure, don't think there's much more i can do as far as my handling of ints goes, not like
+		go has uint128
+		*/
+		if _, ok := glTypeSInts[node.Type.Base]; ok {
+			return constant.NewInt(varTypeToLlvm(node.Type).(*types.IntType), node.Value), node.Type
+		} else if _, ok := glTypeUInts[node.Type.Base]; ok {
+			return constant.NewInt(varTypeToLlvm(node.Type).(*types.IntType), int64(node.UValue)), node.Type
+		}
 	case *parser.BooleanExpression:
 		return constant.NewInt(types.I1, boolToI1(node.Value)), lexer.VarType{Base: lexer.Bool, Pointer: 0}
 	case *parser.FloatLiteral:
 		return constant.NewFloat(types.Float, float64(node.Value)), lexer.VarType{Base: lexer.Float, Pointer: 0}
 	case *parser.InfixExpression:
+		// TODO: clean this pile of shit up
 		left, leftVt := e.Emit(node.Left, entry)
 		right, rightVt := e.Emit(node.Right, entry)
 
 		leftType := left.Type()
 		rightType := right.Type()
 
-		_, leftIntOk := infixIntOpTypes[leftType]
-		_, rightIntOk := infixIntOpTypes[rightType]
+		_, leftIntBaseOk := infixIntOpTypes[leftVt.Base]
+		_, rightIntBaseOk := infixIntOpTypes[rightVt.Base]
+		leftIntOk := leftIntBaseOk && leftVt.Pointer == 0
+		rightIntOk := rightIntBaseOk && rightVt.Pointer == 0
 
 		// TODO: extend when doubles etc
 		_, leftFloatOk := leftType.(*types.FloatType)
@@ -124,73 +140,92 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 
 		if ptr, ok := leftType.(*types.PointerType); ok && rightIntOk {
 			if node.Operator == "+" {
-				return entry.NewGetElementPtr(ptr.ElemType, left, right)
+				return entry.NewGetElementPtr(ptr.ElemType, left, right), leftVt
 			} else if node.Operator == "-" {
 				intType := rightType.(*types.IntType)
 				zero := constant.NewInt(intType, 0)
 				negRight := entry.NewSub(zero, right)
-				return entry.NewGetElementPtr(ptr.ElemType, left, negRight)
+				return entry.NewGetElementPtr(ptr.ElemType, left, negRight), leftVt
 			}
 		}
 
-		if leftIntOk && rightIntOk && leftType == rightType {
+		if leftIntOk && rightIntOk && leftVt == rightVt {
 			switch node.Operator {
 			case "+":
-				return entry.NewAdd(left, right)
+				return entry.NewAdd(left, right), leftVt
 			case "-":
-				return entry.NewSub(left, right)
+				return entry.NewSub(left, right), leftVt
 			case "*":
-				return entry.NewMul(left, right)
-			case "/":
-				// TODO: def behaviour for /0, intmin/-1
-				return entry.NewSDiv(left, right)
-			case "<":
-				return entry.NewICmp(enum.IPredSLT, left, right)
-			case ">":
-				return entry.NewICmp(enum.IPredSGT, left, right)
-			case "<=":
-				return entry.NewICmp(enum.IPredSLE, left, right)
-			case ">=":
-				return entry.NewICmp(enum.IPredSGE, left, right)
+				return entry.NewMul(left, right), leftVt
 			case "==":
-				return entry.NewICmp(enum.IPredEQ, left, right)
+				return entry.NewICmp(enum.IPredEQ, left, right), leftVt
 			case "!=":
-				return entry.NewICmp(enum.IPredNE, left, right)
+				return entry.NewICmp(enum.IPredNE, left, right), leftVt
+			}
+
+			if _, ok := glTypeUInts[leftVt.Base]; ok {
+				switch node.Operator {
+				case "/":
+					// TODO: def behaviour for /0, intmin/-1
+					return entry.NewUDiv(left, right), leftVt
+				case "<":
+					return entry.NewICmp(enum.IPredULT, left, right), leftVt
+				case ">":
+					return entry.NewICmp(enum.IPredUGT, left, right), leftVt
+				case "<=":
+					return entry.NewICmp(enum.IPredULE, left, right), leftVt
+				case ">=":
+					return entry.NewICmp(enum.IPredUGE, left, right), leftVt
+				}
+			} else if _, ok := glTypeSInts[leftVt.Base]; ok {
+				switch node.Operator {
+				case "/":
+					// TODO: def behaviour for /0, intmin/-1
+					return entry.NewSDiv(left, right), leftVt
+				case "<":
+					return entry.NewICmp(enum.IPredSGT, left, right), leftVt
+				case ">":
+					return entry.NewICmp(enum.IPredSGT, left, right), leftVt
+				case "<=":
+					return entry.NewICmp(enum.IPredSLE, left, right), leftVt
+				case ">=":
+					return entry.NewICmp(enum.IPredSGE, left, right), leftVt
+				}
 			}
 		}
 
 		if leftFloatOk && rightFloatOk {
 			switch node.Operator {
 			case "+":
-				return entry.NewFAdd(left, right)
+				return entry.NewFAdd(left, right), leftVt
 			case "-":
-				return entry.NewFSub(left, right)
+				return entry.NewFSub(left, right), leftVt
 			case "*":
-				return entry.NewFMul(left, right)
+				return entry.NewFMul(left, right), leftVt
 			case "/":
 				// TODO: def behaviour for /0, intmin/-1
-				return entry.NewFDiv(left, right)
+				return entry.NewFDiv(left, right), leftVt
 			case "<":
-				return entry.NewFCmp(enum.FPredOLT, left, right)
+				return entry.NewFCmp(enum.FPredOLT, left, right), leftVt
 			case ">":
-				return entry.NewFCmp(enum.FPredOGT, left, right)
+				return entry.NewFCmp(enum.FPredOGT, left, right), leftVt
 			case "<=":
-				return entry.NewFCmp(enum.FPredOLE, left, right)
+				return entry.NewFCmp(enum.FPredOLE, left, right), leftVt
 			case ">=":
-				return entry.NewFCmp(enum.FPredOGE, left, right)
+				return entry.NewFCmp(enum.FPredOGE, left, right), leftVt
 			case "==":
-				return entry.NewFCmp(enum.FPredOEQ, left, right)
+				return entry.NewFCmp(enum.FPredOEQ, left, right), leftVt
 			case "!=":
-				return entry.NewFCmp(enum.FPredONE, left, right)
+				return entry.NewFCmp(enum.FPredONE, left, right), leftVt
 			}
 		}
 
 		if leftType == types.I1 && rightType == types.I1 {
 			switch node.Operator {
 			case "&&":
-				return entry.NewAnd(left, right)
+				return entry.NewAnd(left, right), leftVt
 			case "||":
-				return entry.NewOr(left, right)
+				return entry.NewOr(left, right), leftVt
 			}
 		}
 
@@ -257,7 +292,7 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 		var args []value.Value
 
 		for _, a := range node.Params {
-			val, _ := e.emitAddress(a, entry)
+			val, _ := e.Emit(a, entry)
 			args = append(args, val)
 		}
 
@@ -328,6 +363,7 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 		src, lt := e.Emit(node.Expr, entry)
 		srcType := src.Type()
 		dstType := varTypeToLlvm(node.Type)
+
 		// TODO: could be faster if bare bool comparison? prob
 		_, leftIntOk := llvmIntTypes[srcType]
 		_, rightIntOk := varTypeIntTypes[node.Type.Base]
@@ -340,32 +376,32 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 
 		if leftIntOk && rightIntOk && node.Type.Pointer == 0 {
 			if srcType == types.I1 {
-				return entry.NewZExt(src, dstType)
+				return entry.NewZExt(src, dstType), node.Type
 			}
 
 			dstSize := getSizeForVarType(node.Type)
 			srcSize := getSizeForLlvmType(src.Type())
 
 			if srcSize < dstSize {
-				return entry.NewSExt(src, dstType)
+				return entry.NewSExt(src, dstType), node.Type
 			} else if srcSize > dstSize {
-				return entry.NewTrunc(src, dstType)
+				return entry.NewTrunc(src, dstType), node.Type
 			} else {
 				// same size, no cast necessary
-				return src
+				return src, lt
 			}
 		} else if leftIntOk && node.Type.Pointer > 0 {
-			return entry.NewIntToPtr(src, dstType)
+			return entry.NewIntToPtr(src, dstType), node.Type
 		} else if _, ok := src.Type().(*types.PointerType); ok && rightIntOk && node.Type.Pointer == 0 {
 			if node.Type.Base != lexer.Int {
 				// non 64 bit which is llvm default on most (i.e 64bit) systems
 				fmt.Printf("compile warning: pointer to int cast may truncate")
 			}
-			return entry.NewPtrToInt(src, varTypeToLlvm(node.Type))
+			return entry.NewPtrToInt(src, varTypeToLlvm(node.Type)), node.Type
 		} else if leftIntOk && rightFloatOk {
-			return entry.NewSIToFP(src, dstType)
+			return entry.NewSIToFP(src, dstType), node.Type
 		} else if leftFloatOk && rightIntOk {
-			return entry.NewFPToSI(src, dstType)
+			return entry.NewFPToSI(src, dstType), node.Type
 		} else if leftPtrOk && rightPtrOk {
 			/** c bitcast behaviour
 			  int x = 1073741941; // 0100 0000 0000 0000 0000 0000 0111 0101 = 1073741941; as float = 2.somethingsomething
@@ -374,7 +410,7 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 			  printf("%.100f", *fx); == 2.somethingsomething
 			  return 0;
 			*/
-			return entry.NewBitCast(src, dstType)
+			return entry.NewBitCast(src, dstType), node.Type
 		}
 
 	}

@@ -1,5 +1,5 @@
 fnc main() -> int32 {
-    def int8 x = 255i8;;
-    dbg_i8(x);
+    def uint x = 18446744073709551616u64;
+    dbg_u64(x);
     return 0i32;
 }

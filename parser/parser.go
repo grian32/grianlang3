@@ -149,12 +149,19 @@ func (p *Parser) parseIntegerLiteral() Expression {
 	vt := lexer.VarType{Base: lexer.Int, Pointer: 0}
 	lit := &IntegerLiteral{Token: p.currToken, Type: vt}
 
+	// could be more efficient by parsing based on type or the lack thereof but this makes for a decent chunk cleaner
+	// code
 	value, err := strconv.ParseInt(p.currToken.Literal, 0, 64)
 	if err != nil {
 		p.Errors = append(p.Errors, fmt.Sprintf("could not parse %q as integer", p.currToken.Literal))
 	}
+	uvalue, err := strconv.ParseUint(p.currToken.Literal, 0, 64)
+	if err != nil {
+		p.Errors = append(p.Errors, fmt.Sprintf("could not parse %q as unsigned integer", p.currToken.Literal))
+	}
 
 	lit.Value = value
+	lit.UValue = uvalue
 
 	if p.peekTokenIs(lexer.IDENTIFIER) {
 		switch p.peekToken.Literal {

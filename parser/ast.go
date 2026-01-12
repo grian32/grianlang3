@@ -59,9 +59,10 @@ func (es *ExpressionStatement) String() string {
 }
 
 type IntegerLiteral struct {
-	Token lexer.Token
-	Type  lexer.VarType // options: Int, Int32
-	Value int64         // stored as i64 internally for all
+	Token  lexer.Token
+	Type   lexer.VarType // options: Int, Int32
+	Value  int64         // stored as i64 internally for all
+	UValue uint64
 }
 
 func (il *IntegerLiteral) expressionNode()      { /* noop */ }
