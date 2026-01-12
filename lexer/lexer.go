@@ -179,6 +179,14 @@ func identLookup(lit string) (TokenType, BaseVarType) {
 		return TYPE, Int16
 	case "int8":
 		return TYPE, Int8
+	case "uint":
+		return TYPE, Uint
+	case "uint8":
+		return TYPE, Uint8
+	case "uint16":
+		return TYPE, Uint16
+	case "uint32":
+		return TYPE, Uint32
 	case "none":
 		return TYPE, Void
 	case "def":

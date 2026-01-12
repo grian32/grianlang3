@@ -15,12 +15,15 @@ import (
 type Emitter struct {
 	m *ir.Module
 	// var, vartypes, params get reset after each function is emitted.
-	variables  map[string]*ir.InstAlloca
-	varTypes   map[string]types.Type
-	parameters map[string]*ir.Param
+	variables         map[string]*ir.InstAlloca
+	varTypes          map[string]types.Type
+	varGlTypes        map[string]lexer.VarType
+	parameters        map[string]*ir.Param
+	parametersGlTypes map[string]lexer.VarType
 
-	functions      map[string]*ir.Func
-	functionBlocks map[string]*ir.Block
+	functions             map[string]*ir.Func
+	functionBlocks        map[string]*ir.Block
+	functionGlReturnTypes map[string]lexer.VarType
 }
 
 func New() *Emitter {
@@ -30,6 +33,9 @@ func New() *Emitter {
 	e.functions = make(map[string]*ir.Func)
 	e.functionBlocks = make(map[string]*ir.Block)
 	e.parameters = make(map[string]*ir.Param)
+	e.functionGlReturnTypes = make(map[string]lexer.VarType)
+	e.parametersGlTypes = make(map[string]lexer.VarType)
+	e.varGlTypes = make(map[string]lexer.VarType)
 
 	fnc := e.m.NewFunc("dbg_i64", types.Void, ir.NewParam("val", types.I64))
 	e.functions["dbg_i64"] = fnc
@@ -76,27 +82,35 @@ var varTypeIntTypes = map[lexer.BaseVarType]struct{}{
 	lexer.Int:   {},
 }
 
-func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
+var glTypeSInts = map[lexer.BaseVarType]struct{}{
+	lexer.Int8:  {},
+	lexer.Int16: {},
+	lexer.Int32: {},
+	lexer.Int:   {},
+}
+
+func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.VarType) {
 	switch node := node.(type) {
 	case *parser.Program:
 		var last value.Value
+		var lastType lexer.VarType
 		for _, s := range node.Statements {
-			last = e.Emit(s, entry)
+			last, lastType = e.Emit(s, entry)
 		}
 
-		return last
+		return last, lastType
 	case *parser.ExpressionStatement:
 		return e.Emit(node.Expression, entry)
 	case *parser.IntegerLiteral:
 		// sorta unsafe cast i think, will crash tho if incompatible so same behaviour? maybe better to have an error msg tho
-		return constant.NewInt(varTypeToLlvm(node.Type).(*types.IntType), node.Value)
+		return constant.NewInt(varTypeToLlvm(node.Type).(*types.IntType), node.Value), node.Type
 	case *parser.BooleanExpression:
-		return constant.NewInt(types.I1, boolToI1(node.Value))
+		return constant.NewInt(types.I1, boolToI1(node.Value)), lexer.VarType{Base: lexer.Bool, Pointer: 0}
 	case *parser.FloatLiteral:
-		return constant.NewFloat(types.Float, float64(node.Value))
+		return constant.NewFloat(types.Float, float64(node.Value)), lexer.VarType{Base: lexer.Float, Pointer: 0}
 	case *parser.InfixExpression:
-		left := e.Emit(node.Left, entry)
-		right := e.Emit(node.Right, entry)
+		left, leftVt := e.Emit(node.Left, entry)
+		right, rightVt := e.Emit(node.Right, entry)
 
 		leftType := left.Type()
 		rightType := right.Type()
@@ -181,55 +195,53 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		}
 
 		fmt.Printf("compile error: operator %s invalid for types %T(%s), %T(%s)", node.Operator, node.Left, node.Left.String(), node.Right, node.Right.String())
-		return nil
 	case *parser.PrefixExpression:
 		switch node.Operator {
 		case "!":
-			right := e.Emit(node.Right, entry)
+			right, rt := e.Emit(node.Right, entry)
 			// TODO: check right == i1
 			trueVal := constant.NewInt(types.I1, 1)
-			return entry.NewXor(right, trueVal)
+			return entry.NewXor(right, trueVal), rt
 		case "-":
-			right := e.Emit(node.Right, entry)
-			_, rightIntOk := llvmIntTypes[right.Type()]
+			right, rt := e.Emit(node.Right, entry)
+			_, rightIntOk := glTypeSInts[rt.Base]
 			_, rightFloatOk := right.Type().(*types.FloatType)
 			if rightIntOk {
 				zero := constant.NewInt(right.Type().(*types.IntType), 0)
-				return entry.NewSub(zero, right)
+				return entry.NewSub(zero, right), rt
 			} else if rightFloatOk {
 				zero := constant.NewFloat(types.Float, 0)
-				return entry.NewFSub(zero, right)
+				return entry.NewFSub(zero, right), rt
 			}
 		}
 	case *parser.DefStatement:
 		lt := varTypeToLlvm(node.Type)
-		right := e.Emit(node.Right, entry)
+		right, vt := e.Emit(node.Right, entry)
 
 		vPtr := entry.NewAlloca(lt)
 		e.variables[node.Name.Value] = vPtr
 		e.varTypes[node.Name.Value] = lt
+		e.varGlTypes[node.Name.Value] = vt
 		entry.NewStore(right, vPtr)
-		return right
+		return right, vt
 	case *parser.AssignmentExpression:
 		if ident, ok := node.Left.(*parser.IdentifierExpression); ok {
 			vPtr, ok := e.variables[ident.Value]
 			if !ok {
 				fmt.Printf("compile error: couldn't find variable of name %s used in var assignment", ident.Value)
 			}
-			right := e.Emit(node.Right, entry)
+			right, vt := e.Emit(node.Right, entry)
 			entry.NewStore(right, vPtr)
-			return right
+			return right, vt
 		} else if _, ok := node.Left.(*parser.DereferenceExpression); ok {
-			ptr := e.emitAddress(node.Left, entry)
-			right := e.Emit(node.Right, entry)
+			ptr, _ := e.emitAddress(node.Left, entry)
+			right, vt := e.Emit(node.Right, entry)
 			entry.NewStore(right, ptr)
-			return right
+			return right, vt
 		}
-
-		return nil
 	case *parser.IdentifierExpression:
 		if param, ok := e.parameters[node.Value]; ok {
-			return param
+			return param, e.parametersGlTypes[node.Value]
 		}
 
 		vPtr, ok := e.variables[node.Value]
@@ -240,12 +252,13 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		if !ok {
 			fmt.Printf("compile error: couldn't find variable type of name %s used in var ref", node.Value)
 		}
-		return entry.NewLoad(vType, vPtr)
+		return entry.NewLoad(vType, vPtr), e.varGlTypes[node.Value]
 	case *parser.CallExpression:
 		var args []value.Value
 
 		for _, a := range node.Params {
-			args = append(args, e.Emit(a, entry))
+			val, _ := e.emitAddress(a, entry)
+			args = append(args, val)
 		}
 
 		fncPtr, ok := e.functions[node.Function.Value]
@@ -253,7 +266,7 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 			fmt.Printf("compile error: couldn't find function with name %s", node.Function.Value)
 		}
 
-		return entry.NewCall(fncPtr, args...)
+		return entry.NewCall(fncPtr, args...), e.functionGlReturnTypes[node.Function.Value]
 	case *parser.FunctionStatement:
 		retType := varTypeToLlvm(node.Type)
 		var paramTypes []*ir.Param
@@ -264,6 +277,7 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 				varTypeToLlvm(p.Type),
 			)
 			e.parameters[p.Name.Value] = irParam
+			e.parametersGlTypes[p.Name.Value] = p.Type
 			paramTypes = append(paramTypes, irParam)
 		}
 
@@ -271,6 +285,7 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		e.functions[node.Name.Value] = fncPtr
 		block := fncPtr.NewBlock("")
 		e.functionBlocks[node.Name.Value] = block
+		e.functionGlReturnTypes[node.Name.Value] = node.Type
 
 		foundRet := false
 
@@ -289,28 +304,28 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 		e.parameters = make(map[string]*ir.Param)
 		e.variables = make(map[string]*ir.InstAlloca)
 		e.varTypes = make(map[string]types.Type)
-		return fncPtr
+		return fncPtr, node.Type
 	case *parser.ReturnStatement:
-		val := e.Emit(node.Expr, entry)
+		val, vt := e.Emit(node.Expr, entry)
 		entry.NewRet(val)
-		return val
+		return val, vt
 	case *parser.ReferenceExpression:
 		vPtr, ok := e.variables[node.Var.Value]
 		if !ok {
 			fmt.Printf("compile error: couldn't find variable with name %s in reference expr", node.Var.Value)
 		}
-		return vPtr
+		return vPtr, e.varGlTypes[node.Var.Value]
 	case *parser.DereferenceExpression:
-		ptr := e.Emit(node.Var, entry)
+		ptr, vt := e.Emit(node.Var, entry)
 
 		ptrTy, ok := ptr.Type().(*types.PointerType)
 		if !ok {
 			fmt.Printf("compile error: cannot deref non-ptr type %v\n", ptrTy)
 		}
 
-		return entry.NewLoad(ptrTy.ElemType, ptr)
+		return entry.NewLoad(ptrTy.ElemType, ptr), vt
 	case *parser.CastExpression:
-		src := e.Emit(node.Expr, entry)
+		src, lt := e.Emit(node.Expr, entry)
 		srcType := src.Type()
 		dstType := varTypeToLlvm(node.Type)
 		// TODO: could be faster if bare bool comparison? prob
@@ -364,27 +379,29 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) value.Value {
 
 	}
 
-	return nil
+	return nil, lexer.VarType{}
 }
 
 // emitAdress literally only necessary because i need the vptr from ident expr, deref expr is same as e.emit lol
-func (e *Emitter) emitAddress(node parser.Node, entry *ir.Block) value.Value {
+func (e *Emitter) emitAddress(node parser.Node, entry *ir.Block) (value.Value, lexer.VarType) {
 	switch node := node.(type) {
 	case *parser.IdentifierExpression:
 		if param, ok := e.parameters[node.Value]; ok {
-			return param
+			return param, e.parametersGlTypes[node.Value]
 		}
 		vPtr, ok := e.variables[node.Value]
 		if !ok {
 			fmt.Printf("compile error: couldn't find variable with name %s in deref assignment", node.Value)
 		}
-		return vPtr
+		vt := e.varGlTypes[node.Value]
+		vt.Pointer++
+		return vPtr, vt
 	case *parser.DereferenceExpression:
-		ptr := e.Emit(node.Var, entry)
-		return ptr
+		ptr, t := e.Emit(node.Var, entry)
+		return ptr, t
 	default:
 		fmt.Printf("compile error: invalid node type for emitAddress\n")
-		return nil
+		return nil, lexer.VarType{}
 	}
 }
 
@@ -393,13 +410,13 @@ func varTypeToLlvm(vt lexer.VarType) types.Type {
 	switch vt.Base {
 	case lexer.None:
 		baseType = nil
-	case lexer.Int:
+	case lexer.Int, lexer.Uint:
 		baseType = types.I64
-	case lexer.Int32:
+	case lexer.Int32, lexer.Uint32:
 		baseType = types.I32
-	case lexer.Int8:
+	case lexer.Int8, lexer.Uint8:
 		baseType = types.I8
-	case lexer.Int16:
+	case lexer.Int16, lexer.Uint16:
 		baseType = types.I16
 	case lexer.Void:
 		baseType = types.Void
@@ -423,13 +440,13 @@ func getSizeForVarType(vt lexer.VarType) int64 {
 		return 8
 	}
 	switch vt.Base {
-	case lexer.Bool, lexer.Int8:
+	case lexer.Bool, lexer.Int8, lexer.Uint8:
 		return 1
-	case lexer.Int16:
+	case lexer.Int16, lexer.Uint16:
 		return 2
-	case lexer.Int32, lexer.Float:
+	case lexer.Int32, lexer.Float, lexer.Uint32:
 		return 4
-	case lexer.Int:
+	case lexer.Int, lexer.Uint:
 		return 8
 	}
 

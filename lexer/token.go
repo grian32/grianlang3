@@ -127,6 +127,10 @@ const (
 	Int32
 	Int16
 	Int8
+	Uint
+	Uint32
+	Uint16
+	Uint8
 	Bool
 	Void
 	Float
