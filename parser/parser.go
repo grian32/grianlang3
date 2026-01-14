@@ -474,7 +474,7 @@ func (p *Parser) parseAssignable() Expression {
 		return expr
 	}
 
-	p.Errors = append(p.Errors, fmt.Sprintf("invalid assign target: %s"), p.currToken.Type.String())
+	p.Errors = append(p.Errors, fmt.Sprintf("invalid assign target: %s", p.currToken.Type.String()))
 	return nil
 }
 
