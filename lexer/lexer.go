@@ -205,6 +205,8 @@ func identLookup(lit string) (TokenType, BaseVarType) {
 		return TYPE, Float
 	case "as":
 		return AS, None
+	case "sizeof":
+		return SIZEOF, None
 	}
 
 	return IDENTIFIER, None

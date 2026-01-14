@@ -76,6 +76,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.prefixParseFns[lexer.TRUE] = p.parseBoolean
 	p.prefixParseFns[lexer.FALSE] = p.parseBoolean
 	p.prefixParseFns[lexer.NOT] = p.parsePrefixExpression
+	p.prefixParseFns[lexer.SIZEOF] = p.parseSizeofExpression
 
 	p.infixParseFns = make(map[lexer.TokenType]infixParseFn)
 	p.infixParseFns[lexer.PLUS] = p.parseInfixExpression
@@ -184,6 +185,20 @@ func (p *Parser) parseIntegerLiteral() Expression {
 	}
 
 	return lit
+}
+
+func (p *Parser) parseSizeofExpression() Expression {
+	expr := &SizeofExpression{Token: p.currToken}
+	if !p.expectPeek(lexer.TYPE) {
+		return nil
+	}
+
+	vt := p.currToken.VarType
+	p.getPointers(&vt)
+
+	expr.Type = vt
+
+	return expr
 }
 
 func (p *Parser) parseFloatLiteral() Expression {

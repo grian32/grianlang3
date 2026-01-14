@@ -412,7 +412,8 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 			*/
 			return entry.NewBitCast(src, dstType), node.Type
 		}
-
+	case *parser.SizeofExpression:
+		return constant.NewInt(types.I64, getSizeForVarType(node.Type)), lexer.VarType{Base: lexer.Uint, Pointer: 0}
 	}
 
 	return nil, lexer.VarType{}

@@ -38,6 +38,7 @@ const (
 	GT
 	GTEQ
 	AS
+	SIZEOF
 	EOF
 )
 

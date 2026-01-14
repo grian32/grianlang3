@@ -257,3 +257,12 @@ type FloatLiteral struct {
 func (fl *FloatLiteral) expressionNode()      { /* noop */ }
 func (fl *FloatLiteral) TokenLiteral() string { return fl.Token.Literal }
 func (fl *FloatLiteral) String() string       { return fl.Token.Literal + "(" + fl.Type.String() + ")" }
+
+type SizeofExpression struct {
+	Token lexer.Token
+	Type  lexer.VarType
+}
+
+func (se *SizeofExpression) expressionNode()      { /* noop */ }
+func (se *SizeofExpression) TokenLiteral() string { return se.Token.Literal }
+func (se *SizeofExpression) String() string       { return "sizeof " + se.Type.String() }
