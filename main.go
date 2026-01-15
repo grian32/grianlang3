@@ -24,7 +24,7 @@ func main() {
 
 	program := p.ParseProgram()
 
-	fmt.Printf("%s\n", program.String())
+	//fmt.Printf("%s\n", program.String())
 
 	e := emitter.New()
 
@@ -38,14 +38,20 @@ func main() {
 	defer file.Close()
 	llvmIr := e.Module()
 	fmt.Fprintf(file, "%s", llvmIr)
-	fmt.Printf("\n\nllvm ir:\n%s\n", llvmIr)
+	// fmt.Printf("\n\nllvm ir:\n%s\n", llvmIr)
 
+	// TODO: walk builtins/ automatically for compilation.. auto remove the .o files
 	out, err := exec.Command("clang", "-c", "dbg.c", "-o", "dbg.o").CombinedOutput()
 	if err != nil {
 		fmt.Printf("out in clang exec: %s\n", out)
 		fmt.Printf("err in clang exec: %v\n", err)
 	}
-	out, err = exec.Command("clang", "test.ll", "dbg.o", "-o", "out").CombinedOutput()
+	out, err = exec.Command("clang", "-c", "builtins/arrays.c", "-o", "array.o").CombinedOutput()
+	if err != nil {
+		fmt.Printf("out in clang exec: %s\n", out)
+		fmt.Printf("err in clang exec: %v\n", err)
+	}
+	out, err = exec.Command("clang", "test.ll", "dbg.o", "array.o", "-o", "out").CombinedOutput()
 	if err != nil {
 		fmt.Printf("out in clang exec: %s\n", out)
 		fmt.Printf("err in clang exec: %v\n", err)

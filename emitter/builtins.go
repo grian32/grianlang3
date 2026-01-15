@@ -37,6 +37,9 @@ var builtins = map[string]BuiltinDef{
 	"dbg_float": NewBuiltinDef(types.Void, newVt(lexer.Void), types.Float),
 	"dbg_bool":  NewBuiltinDef(types.Void, newVt(lexer.Void), types.I1),
 	"malloc":    NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.Int8, 1), types.I64),
+	"arr_new":   NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.None, 1), types.I64),
+	"arr_push":  NewBuiltinDef(types.Void, newVt(lexer.None), types.I8Ptr, types.I8Ptr),
+	"arr_free":  NewBuiltinDef(types.Void, newVt(lexer.None), types.I8Ptr),
 }
 
 func AddBuiltins(e *Emitter) {

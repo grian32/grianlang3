@@ -2,3 +2,4 @@
 test.ll
 out
 dbg.o
+array.o
