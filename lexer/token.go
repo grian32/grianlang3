@@ -39,6 +39,8 @@ const (
 	GTEQ
 	AS
 	SIZEOF
+	LBRACKET
+	RBRACKET
 	EOF
 )
 

@@ -1,5 +1,11 @@
 fnc main() -> int32 {
-    def uint x = sizeof uint32;
-    dbg_u64(x);
+    def int32* x = (malloc(4u64 * (sizeof int32))) as int32*;
+    x[0] = 7i32;
+    x[1] = 8i32;
+    x[2] = 9i32;
+    x[3] = 10i32;
+
+    def int32 y = x[-7];
+    dbg_i32(y);
     return 0i32;
 }

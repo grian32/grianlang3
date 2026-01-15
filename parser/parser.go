@@ -38,6 +38,7 @@ var precedences = map[lexer.TokenType]byte{
 	lexer.LT:       LESSGREATER,
 	lexer.GTEQ:     LESSGREATER,
 	lexer.LTEQ:     LESSGREATER,
+	lexer.LBRACKET: INDEX,
 	lexer.AS:       CAST,
 }
 
@@ -94,6 +95,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.infixParseFns[lexer.LPAREN] = p.parseCallExpression
 	p.infixParseFns[lexer.ASSIGN] = p.parseAssignExpression
 	p.infixParseFns[lexer.AS] = p.parseCastExpression
+	p.infixParseFns[lexer.LBRACKET] = p.parseArrayIndexExpression
 
 	return p
 }
@@ -278,6 +280,25 @@ func (p *Parser) parseDereference() Expression {
 	}
 
 	return expr
+}
+
+// parseArrayIndexExpression, this is rather dodgy as it basically attempts to be a sugar for deref + pointer arithmetic
+// to keep the same semantics
+func (p *Parser) parseArrayIndexExpression(left Expression) Expression {
+	derefToken := p.currToken
+	if !p.currTokenIs(lexer.LBRACKET) {
+		return nil
+	}
+	p.NextToken()
+	index := p.parseExpression(LOWEST)
+	if !p.expectPeek(lexer.RBRACKET) {
+		return nil
+	}
+
+	return &DereferenceExpression{
+		Token: derefToken,
+		Var:   &InfixExpression{Token: p.currToken, Left: left, Operator: "+", Right: index},
+	}
 }
 
 func (p *Parser) ParseProgram() *Program {

@@ -21,6 +21,10 @@ func newVt(base lexer.BaseVarType) lexer.VarType {
 	return lexer.VarType{Base: base, Pointer: 0}
 }
 
+func newVtPtr(base lexer.BaseVarType, ptr uint8) lexer.VarType {
+	return lexer.VarType{Base: base, Pointer: ptr}
+}
+
 var builtins = map[string]BuiltinDef{
 	"dbg_i64":   NewBuiltinDef(types.Void, newVt(lexer.Void), types.I64),
 	"dbg_i32":   NewBuiltinDef(types.Void, newVt(lexer.Void), types.I32),
@@ -32,6 +36,7 @@ var builtins = map[string]BuiltinDef{
 	"dbg_u8":    NewBuiltinDef(types.Void, newVt(lexer.Void), types.I8),
 	"dbg_float": NewBuiltinDef(types.Void, newVt(lexer.Void), types.Float),
 	"dbg_bool":  NewBuiltinDef(types.Void, newVt(lexer.Void), types.I1),
+	"malloc":    NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.Int8, 1), types.I64),
 }
 
 func AddBuiltins(e *Emitter) {

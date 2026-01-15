@@ -44,6 +44,8 @@ var singleCharToken = map[byte]TokenType{
 	')': RPAREN,
 	'{': LBRACE,
 	'}': RBRACE,
+	'[': LBRACKET,
+	']': RBRACKET,
 	',': COMMA,
 }
 
