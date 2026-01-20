@@ -414,6 +414,29 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 		}
 	case *parser.SizeofExpression:
 		return constant.NewInt(types.I64, getSizeForVarType(node.Type)), lexer.VarType{Base: lexer.Uint, Pointer: 0}
+	case *parser.ArrayLiteral:
+		newFnc, ok := e.functions["arr_new"]
+		if !ok {
+			fmt.Printf("compiler error: cannot find arr_new while emitting array literal\n")
+		}
+		push, ok := e.functions["arr_push"]
+		if !ok {
+			fmt.Printf("compiler error: cannot find arr_push while emitting array literal\n")
+		}
+
+		sizeInt := constant.NewInt(types.I64, getSizeForVarType(node.Type))
+		newCall := entry.NewCall(newFnc, sizeInt)
+		node.Type.Pointer++
+		newCallCasted := entry.NewBitCast(newCall, varTypeToLlvm(node.Type))
+		ptr := entry.NewAlloca(varTypeToLlvm(node.Type))
+		entry.NewStore(newCallCasted, ptr)
+		for _, elem := range node.Items {
+			v, _ := e.Emit(elem, entry)
+			entry.NewCall(push, ptr, v)
+		}
+
+		// possibly dangerous?
+		return newCallCasted, node.Type
 	}
 
 	return nil, lexer.VarType{}

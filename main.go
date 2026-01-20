@@ -38,7 +38,7 @@ func main() {
 	defer file.Close()
 	llvmIr := e.Module()
 	fmt.Fprintf(file, "%s", llvmIr)
-	// fmt.Printf("\n\nllvm ir:\n%s\n", llvmIr)
+	//fmt.Printf("\n\nllvm ir:\n%s\n", llvmIr)
 
 	// TODO: walk builtins/ automatically for compilation.. auto remove the .o files
 	out, err := exec.Command("clang", "-c", "dbg.c", "-o", "dbg.o").CombinedOutput()

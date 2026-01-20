@@ -266,3 +266,28 @@ type SizeofExpression struct {
 func (se *SizeofExpression) expressionNode()      { /* noop */ }
 func (se *SizeofExpression) TokenLiteral() string { return se.Token.Literal }
 func (se *SizeofExpression) String() string       { return "sizeof " + se.Type.String() }
+
+type ArrayLiteral struct {
+	Token lexer.Token
+	Type  lexer.VarType
+	Items []Expression
+}
+
+func (al *ArrayLiteral) expressionNode()      { /* noop */ }
+func (al *ArrayLiteral) TokenLiteral() string { return al.Token.Literal }
+func (al *ArrayLiteral) String() string {
+	var out bytes.Buffer
+	out.WriteString("[")
+	out.WriteString(al.Type.String())
+	out.WriteString(";")
+
+	for i, e := range al.Items {
+		out.WriteString(e.String())
+		if i != len(al.Items)-1 {
+			out.WriteString(",")
+		}
+	}
+	out.WriteString("]")
+
+	return out.String()
+}

@@ -78,6 +78,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.prefixParseFns[lexer.FALSE] = p.parseBoolean
 	p.prefixParseFns[lexer.NOT] = p.parsePrefixExpression
 	p.prefixParseFns[lexer.SIZEOF] = p.parseSizeofExpression
+	p.prefixParseFns[lexer.LBRACKET] = p.parseArrayLiteral
 
 	p.infixParseFns = make(map[lexer.TokenType]infixParseFn)
 	p.infixParseFns[lexer.PLUS] = p.parseInfixExpression
@@ -299,6 +300,37 @@ func (p *Parser) parseArrayIndexExpression(left Expression) Expression {
 		Token: derefToken,
 		Var:   &InfixExpression{Token: p.currToken, Left: left, Operator: "+", Right: index},
 	}
+}
+
+func (p *Parser) parseArrayLiteral() Expression {
+	lit := &ArrayLiteral{Token: p.currToken}
+	// assumess curr = [
+	p.NextToken()
+	vt := p.currToken.VarType
+	p.getPointers(&vt)
+	if !p.expectPeek(lexer.SEMICOLON) {
+		return nil
+	}
+	lit.Type = vt
+	p.NextToken()
+
+	lit.Items = []Expression{}
+
+	for !p.currTokenIs(lexer.RBRACKET) {
+		expr := p.parseExpression(LOWEST)
+		p.NextToken()
+		lit.Items = append(lit.Items, expr)
+		if p.currTokenIs(lexer.RBRACKET) {
+			break
+		} else if p.currTokenIs(lexer.COMMA) {
+			p.NextToken()
+			continue
+		} else {
+			return nil
+		}
+	}
+
+	return lit
 }
 
 func (p *Parser) ParseProgram() *Program {
