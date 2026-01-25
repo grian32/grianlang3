@@ -107,10 +107,27 @@ func (l *Lexer) NextToken() Token {
 			tok.Type, tok.VarType.Base = identLookup(tok.Literal)
 			return tok
 		}
+		if l.ch == '"' {
+			l.readChar()
+			tok.Type = STRING
+			//tok.VarType = VarType{Base: Int8, Pointer: 1};
+			tok.Literal = l.readString()
+		}
 	}
 
 	l.readChar()
 	return tok
+}
+
+func (l *Lexer) readString() string {
+	startPos := l.pos
+
+	for l.ch != '"' {
+		l.readChar()
+	}
+	l.readChar()
+
+	return l.input[startPos : l.pos-1]
 }
 
 func (l *Lexer) readHexaInt() string {
@@ -209,6 +226,8 @@ func identLookup(lit string) (TokenType, BaseVarType) {
 		return AS, None
 	case "sizeof":
 		return SIZEOF, None
+	case "import":
+		return IMPORT, None
 	}
 
 	return IDENTIFIER, None

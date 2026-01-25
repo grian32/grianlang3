@@ -1,11 +1,6 @@
+import "test2.gl3"
+
 fnc main() -> int32 {
-    def int32* x = [int32;1,2,3,4];
-    dbg_i32(x[0]);
-    dbg_i32(x[1]);
-    dbg_i32(x[2]);
-    dbg_i32(x[3]);
-    arr_push(&x, 7);
-    dbg_i32(x[4]);
-    arr_free(&x);
-    return 0i32;
+    displayFour();
+    return 0i32
 }

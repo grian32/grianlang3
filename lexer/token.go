@@ -41,6 +41,8 @@ const (
 	SIZEOF
 	LBRACKET
 	RBRACKET
+	IMPORT
+	STRING
 	EOF
 )
 

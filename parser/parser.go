@@ -383,9 +383,22 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseReturnStatement()
 	} else if p.currTokenIs(lexer.FNC) {
 		return p.parseFunctionStatement()
+	} else if p.currTokenIs(lexer.IMPORT) {
+		return p.parseImportStatement()
 	}
 
 	return p.parseExpressionStatement()
+}
+
+func (p *Parser) parseImportStatement() Statement {
+	stmt := &ImportStatement{Token: p.currToken}
+	p.NextToken()
+	if !p.currTokenIs(lexer.STRING) {
+		return nil
+	}
+	stmt.Path = p.currToken.Literal
+
+	return stmt
 }
 
 func (p *Parser) parseReturnStatement() Statement {

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"grianlang3/lexer"
 	"grianlang3/parser"
+	"os"
+	"strings"
 
 	"github.com/llir/llvm/ir"
 	"github.com/llir/llvm/ir/constant"
@@ -437,6 +439,26 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 
 		// possibly dangerous?
 		return newCallCasted, node.Type
+	case *parser.ImportStatement:
+		if strings.HasSuffix(node.Path, ".gl3") {
+			f, err := os.ReadFile(node.Path)
+			if err != nil {
+				fmt.Printf("compiler error: cannot find %s file described in import stmt", f)
+				return nil, lexer.VarType{}
+			}
+			declares := findDeclares(string(f))
+			for _, d := range declares {
+				var params []*ir.Param
+				for _, p := range d.ParamTypes {
+					params = append(params, ir.NewParam("", varTypeToLlvm(p)))
+				}
+				fnc := e.m.NewFunc(d.Name, varTypeToLlvm(d.ReturnType), params...)
+				e.functions[d.Name] = fnc
+				e.functionGlReturnTypes[d.Name] = d.ReturnType
+			}
+		} else {
+			// must be builtin, i.e import "arrays" ?
+		}
 	}
 
 	return nil, lexer.VarType{}

@@ -5,68 +5,69 @@ import (
 	"grianlang3/emitter"
 	"grianlang3/lexer"
 	"grianlang3/parser"
+	"log"
 	"os"
 	"os/exec"
 )
 
 func main() {
-	input, err := os.ReadFile("./test.gl3")
-	if err != nil {
-		fmt.Printf("failed to read input file: %v\n", err)
-		return
+	if err := os.Mkdir("./lltemp", os.ModePerm); err != nil {
+		log.Fatal(err)
 	}
-	fmt.Printf("from:\n%s\n", input)
-
-	l := lexer.New(string(input))
-	// printTokens(l)
-
-	p := parser.New(l)
-
-	program := p.ParseProgram()
-
-	//fmt.Printf("%s\n", program.String())
-
-	e := emitter.New()
-
-	e.Emit(program, nil)
-
-	file, err := os.Create("./test.ll")
-	if err != nil {
-		fmt.Printf("failed to write ll file: %v\n", err)
-		return
+	files := os.Args[1:]
+	keepll := false
+	if files[0] == "--keepll" {
+		keepll = true
+		files = os.Args[2:]
 	}
-	defer file.Close()
-	llvmIr := e.Module()
-	fmt.Fprintf(file, "%s", llvmIr)
-	//fmt.Printf("\n\nllvm ir:\n%s\n", llvmIr)
-
-	// TODO: walk builtins/ automatically for compilation.. auto remove the .o files
-	out, err := exec.Command("clang", "-c", "dbg.c", "-o", "dbg.o").CombinedOutput()
+	var llFiles []string
+	for _, file := range files {
+		input, err := os.ReadFile(file)
+		if err != nil {
+			log.Fatal(err)
+		}
+		l := lexer.New(string(input))
+		p := parser.New(l)
+		program := p.ParseProgram()
+		if len(p.Errors) != 0 {
+			for _, err := range p.Errors {
+				log.Printf("%s: parser error: %s\n", file, err)
+			}
+			log.Printf("%s: %s", file, program.String())
+			log.Fatalf("%s: exiting after parser errors\n", file)
+		}
+		e := emitter.New()
+		e.Emit(program, nil)
+		llvmIr := e.Module()
+		fileName := fmt.Sprintf("./lltemp/%s.ll", file)
+		llFile, err := os.Create(fileName)
+		if err != nil {
+			log.Fatalf("%s: %v\n", file, err)
+		}
+		_, err = fmt.Fprintf(llFile, "%s", llvmIr)
+		if err != nil {
+			log.Fatalf("%s: %v\n", file, err)
+		}
+		err = llFile.Close()
+		if err != nil {
+			log.Fatalf("%s: %v\n", file, err)
+		}
+		llFiles = append(llFiles, fileName)
+	}
+	// TODO: gotta go once i have builtin imports
+	llFiles = append(llFiles, "dbg.o")
+	llFiles = append(llFiles, "-o", "out")
+	out, err := exec.Command("clang", llFiles...).CombinedOutput()
 	if err != nil {
 		fmt.Printf("out in clang exec: %s\n", out)
 		fmt.Printf("err in clang exec: %v\n", err)
+		log.Fatalf("existing after err in clang exec\n")
 	}
-	out, err = exec.Command("clang", "-c", "builtins/arrays.c", "-o", "array.o").CombinedOutput()
-	if err != nil {
-		fmt.Printf("out in clang exec: %s\n", out)
-		fmt.Printf("err in clang exec: %v\n", err)
-	}
-	out, err = exec.Command("clang", "test.ll", "dbg.o", "array.o", "-o", "out").CombinedOutput()
-	if err != nil {
-		fmt.Printf("out in clang exec: %s\n", out)
-		fmt.Printf("err in clang exec: %v\n", err)
-	}
-	execCmd := exec.Command("./out")
-	output, err := execCmd.Output()
-	if err != nil {
-		fmt.Printf("err in binary exec: %v\n", err)
-	} else {
-		fmt.Println(string(output))
-	}
-	err = os.Remove("./out")
-	if err != nil {
-		fmt.Printf("failed to delete out file: %v\n", err)
-		return
+	if !keepll {
+		err := os.RemoveAll("./lltemp")
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 

@@ -291,3 +291,12 @@ func (al *ArrayLiteral) String() string {
 
 	return out.String()
 }
+
+type ImportStatement struct {
+	Token lexer.Token
+	Path  string
+}
+
+func (is *ImportStatement) statementNode()       { /* noop */ }
+func (is *ImportStatement) TokenLiteral() string { return is.Token.Literal }
+func (is *ImportStatement) String() string       { return "import \"" + is.Path + "\"" }

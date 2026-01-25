@@ -1,0 +1,3 @@
+fnc displayFour() -> none {
+    dbg_i64(4);
+}
