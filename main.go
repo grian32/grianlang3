@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"fmt"
 	"grianlang3/emitter"
 	"grianlang3/lexer"
@@ -9,6 +10,9 @@ import (
 	"os"
 	"os/exec"
 )
+
+//go:embed builtins/*.ll
+var builtinFs embed.FS
 
 func main() {
 	if err := os.Mkdir("./lltemp", os.ModePerm); err != nil {
@@ -21,6 +25,7 @@ func main() {
 		files = os.Args[2:]
 	}
 	var llFiles []string
+	builtinModules := map[string]struct{}{}
 	for _, file := range files {
 		input, err := os.ReadFile(file)
 		if err != nil {
@@ -52,10 +57,35 @@ func main() {
 		if err != nil {
 			log.Fatalf("%s: %v\n", file, err)
 		}
+
+		llFiles = append(llFiles, fileName)
+
+		for _, builtinModule := range e.BuiltinModules() {
+			builtinModules[builtinModule] = struct{}{}
+		}
+	}
+
+	for mod, _ := range builtinModules {
+		modText, err := builtinFs.ReadFile(fmt.Sprintf("builtins/%s", mod))
+		if err != nil {
+			log.Fatalf("failed to read %s from builtin fs: %v\n", mod, err)
+		}
+		fileName := fmt.Sprintf("./lltemp/%s", mod)
+		llFile, err := os.Create(fileName)
+		if err != nil {
+			log.Fatalf("failed to create %s: %v\n", llFile, err)
+		}
+		_, err = fmt.Fprintf(llFile, "%s", modText)
+		if err != nil {
+			log.Fatalf("failed to write %s: %v\n", llFile, err)
+		}
+		err = llFile.Close()
+		if err != nil {
+			log.Fatalf("failed to close %s: %v\n", llFile, err)
+		}
 		llFiles = append(llFiles, fileName)
 	}
-	// TODO: gotta go once i have builtin imports
-	llFiles = append(llFiles, "dbg.o")
+
 	llFiles = append(llFiles, "-o", "out")
 	out, err := exec.Command("clang", llFiles...).CombinedOutput()
 	if err != nil {

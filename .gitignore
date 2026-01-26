@@ -3,3 +3,5 @@ test.ll
 out
 dbg.o
 array.o
+grianlang3
+builtins/*.ll

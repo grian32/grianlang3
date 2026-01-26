@@ -26,6 +26,8 @@ type Emitter struct {
 	functions             map[string]*ir.Func
 	functionBlocks        map[string]*ir.Block
 	functionGlReturnTypes map[string]lexer.VarType
+
+	builtinModules []string
 }
 
 func New() *Emitter {
@@ -39,7 +41,6 @@ func New() *Emitter {
 	e.parametersGlTypes = make(map[string]lexer.VarType)
 	e.varGlTypes = make(map[string]lexer.VarType)
 
-	AddBuiltins(e)
 	//fnc = e.m.NewFunc("malloc", types.I32Ptr, ir.NewParam("val", types.I64Ptr))
 	//e.functions["malloc"] = fnc
 	return e
@@ -47,6 +48,10 @@ func New() *Emitter {
 
 func (e *Emitter) Module() *ir.Module {
 	return e.m
+}
+
+func (e *Emitter) BuiltinModules() []string {
+	return e.builtinModules
 }
 
 // TODO: maybe look into ditching this, serves its purposes, but feels a bit wasteful
@@ -457,7 +462,10 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 				e.functionGlReturnTypes[d.Name] = d.ReturnType
 			}
 		} else {
-			// must be builtin, i.e import "arrays" ?
+			err := AddBuiltinModule(e, node.Path)
+			if err != nil {
+				fmt.Printf("compiler error: couldn't import builtin module %s", node.Path)
+			}
 		}
 	}
 
