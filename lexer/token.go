@@ -132,6 +132,7 @@ const (
 	Int32
 	Int16
 	Int8
+	Char
 	Uint
 	Uint32
 	Uint16
@@ -151,8 +152,24 @@ func (bvt BaseVarType) String() string {
 		return "Int"
 	case Int32:
 		return "Int32"
+	case Int16:
+		return "Int16"
+	case Int8:
+		return "Int8"
+	case Char:
+		return "Char"
+	case Uint:
+		return "Uint"
+	case Uint32:
+		return "Uint32"
+	case Uint16:
+		return "Uint16"
+	case Uint8:
+		return "Uint8"
 	case Bool:
 		return "Bool"
+	case Float:
+		return "Float"
 	default:
 		return "Unknown"
 	}

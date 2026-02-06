@@ -1,6 +1,8 @@
 package lexer
 
-import "grianlang3/util"
+import (
+	"grianlang3/util"
+)
 
 type Lexer struct {
 	input   string
@@ -228,6 +230,8 @@ func identLookup(lit string) (TokenType, BaseVarType) {
 		return SIZEOF, None
 	case "import":
 		return IMPORT, None
+	case "char":
+		return TYPE, Char
 	}
 
 	return IDENTIFIER, None

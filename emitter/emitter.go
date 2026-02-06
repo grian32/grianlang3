@@ -27,6 +27,8 @@ type Emitter struct {
 	functionBlocks        map[string]*ir.Block
 	functionGlReturnTypes map[string]lexer.VarType
 
+	stringLiterals map[string]*ir.Global
+
 	builtinModules []string
 }
 
@@ -40,6 +42,7 @@ func New() *Emitter {
 	e.functionGlReturnTypes = make(map[string]lexer.VarType)
 	e.parametersGlTypes = make(map[string]lexer.VarType)
 	e.varGlTypes = make(map[string]lexer.VarType)
+	e.stringLiterals = make(map[string]*ir.Global)
 
 	//fnc = e.m.NewFunc("malloc", types.I32Ptr, ir.NewParam("val", types.I64Ptr))
 	//e.functions["malloc"] = fnc
@@ -467,6 +470,19 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 				fmt.Printf("compiler error: couldn't import builtin module %s", node.Path)
 			}
 		}
+	case *parser.StringLiteral:
+		sVt := lexer.VarType{Base: lexer.Char, Pointer: 1}
+		zero := constant.NewInt(types.I64, 0)
+		if sPtr, ok := e.stringLiterals[node.Value]; ok {
+			return constant.NewGetElementPtr(sPtr.ContentType, sPtr, zero, zero), sVt
+		}
+		str := e.m.NewGlobalDef("", constant.NewCharArrayFromString(node.Value))
+		str.Linkage = enum.LinkagePrivate
+		str.UnnamedAddr = enum.UnnamedAddrUnnamedAddr
+
+		e.stringLiterals[node.Value] = str
+
+		return constant.NewGetElementPtr(str.ContentType, str, zero, zero), sVt
 	}
 
 	return nil, lexer.VarType{}
@@ -504,7 +520,7 @@ func varTypeToLlvm(vt lexer.VarType) types.Type {
 		baseType = types.I64
 	case lexer.Int32, lexer.Uint32:
 		baseType = types.I32
-	case lexer.Int8, lexer.Uint8:
+	case lexer.Int8, lexer.Uint8, lexer.Char:
 		baseType = types.I8
 	case lexer.Int16, lexer.Uint16:
 		baseType = types.I16
@@ -530,7 +546,7 @@ func getSizeForVarType(vt lexer.VarType) int64 {
 		return 8
 	}
 	switch vt.Base {
-	case lexer.Bool, lexer.Int8, lexer.Uint8:
+	case lexer.Bool, lexer.Int8, lexer.Uint8, lexer.Char:
 		return 1
 	case lexer.Int16, lexer.Uint16:
 		return 2

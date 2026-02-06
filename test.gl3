@@ -1,6 +1,8 @@
-import "test2.gl3"
+import "dbg"
 
 fnc main() -> int32 {
-    displayFour();
+    def char* x = "hello, world!";
+    dbg_str(x);
+
     return 0i32
 }

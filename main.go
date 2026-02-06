@@ -39,7 +39,7 @@ func main() {
 				log.Printf("%s: parser error: %s\n", file, err)
 			}
 			log.Printf("%s: %s", file, program.String())
-			log.Fatalf("%s: exiting after parser errors\n", file)
+			fatalAndCleanup(keepll, "%s: exiting after parser errors\n", file)
 		}
 		e := emitter.New()
 		e.Emit(program, nil)
@@ -47,15 +47,15 @@ func main() {
 		fileName := fmt.Sprintf("./lltemp/%s.ll", file)
 		llFile, err := os.Create(fileName)
 		if err != nil {
-			log.Fatalf("%s: %v\n", file, err)
+			fatalAndCleanup(keepll, "%s: %v\n", file, err)
 		}
 		_, err = fmt.Fprintf(llFile, "%s", llvmIr)
 		if err != nil {
-			log.Fatalf("%s: %v\n", file, err)
+			fatalAndCleanup(keepll, "%s: %v\n", file, err)
 		}
 		err = llFile.Close()
 		if err != nil {
-			log.Fatalf("%s: %v\n", file, err)
+			fatalAndCleanup(keepll, "%s: %v\n", file, err)
 		}
 
 		llFiles = append(llFiles, fileName)
@@ -68,20 +68,20 @@ func main() {
 	for mod, _ := range builtinModules {
 		modText, err := builtinFs.ReadFile(fmt.Sprintf("builtins/%s", mod))
 		if err != nil {
-			log.Fatalf("failed to read %s from builtin fs: %v\n", mod, err)
+			fatalAndCleanup(keepll, "failed to read %s from builtin fs: %v\n", mod, err)
 		}
 		fileName := fmt.Sprintf("./lltemp/%s", mod)
 		llFile, err := os.Create(fileName)
 		if err != nil {
-			log.Fatalf("failed to create %s: %v\n", llFile, err)
+			fatalAndCleanup(keepll, "failed to create %s: %v\n", llFile, err)
 		}
 		_, err = fmt.Fprintf(llFile, "%s", modText)
 		if err != nil {
-			log.Fatalf("failed to write %s: %v\n", llFile, err)
+			fatalAndCleanup(keepll, "failed to write %s: %v\n", llFile, err)
 		}
 		err = llFile.Close()
 		if err != nil {
-			log.Fatalf("failed to close %s: %v\n", llFile, err)
+			fatalAndCleanup(keepll, "failed to close %s: %v\n", llFile, err)
 		}
 		llFiles = append(llFiles, fileName)
 	}
@@ -91,14 +91,18 @@ func main() {
 	if err != nil {
 		fmt.Printf("out in clang exec: %s\n", out)
 		fmt.Printf("err in clang exec: %v\n", err)
-		log.Fatalf("existing after err in clang exec\n")
+		fatalAndCleanup(keepll, "existing after err in clang exec\n")
 	}
+}
+
+func fatalAndCleanup(keepll bool, fmt string, v ...any) {
 	if !keepll {
 		err := os.RemoveAll("./lltemp")
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
+	log.Fatalf(fmt, v)
 }
 
 // temp debug function

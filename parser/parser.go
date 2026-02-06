@@ -69,6 +69,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.prefixParseFns = make(map[lexer.TokenType]prefixParseFn)
 	p.prefixParseFns[lexer.INT] = p.parseIntegerLiteral
 	p.prefixParseFns[lexer.FLOAT] = p.parseFloatLiteral
+	p.prefixParseFns[lexer.STRING] = p.parseStringLiteral
 	p.prefixParseFns[lexer.MINUS] = p.parsePrefixExpression
 	p.prefixParseFns[lexer.IDENTIFIER] = p.parseIdentifier
 	p.prefixParseFns[lexer.LPAREN] = p.parseGroupedExpression
@@ -188,6 +189,10 @@ func (p *Parser) parseIntegerLiteral() Expression {
 	}
 
 	return lit
+}
+
+func (p *Parser) parseStringLiteral() Expression {
+	return &StringLiteral{ Token: p.currToken, Value: p.currToken.Literal }
 }
 
 func (p *Parser) parseSizeofExpression() Expression {

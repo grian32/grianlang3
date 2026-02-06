@@ -300,3 +300,12 @@ type ImportStatement struct {
 func (is *ImportStatement) statementNode()       { /* noop */ }
 func (is *ImportStatement) TokenLiteral() string { return is.Token.Literal }
 func (is *ImportStatement) String() string       { return "import \"" + is.Path + "\"" }
+
+type StringLiteral struct {
+	Token lexer.Token
+	Value string
+}
+
+func (sl *StringLiteral) expressionNode()      { /* noop */ }
+func (sl *StringLiteral) TokenLiteral() string { return sl.Token.Literal }
+func (sl *StringLiteral) String() string       { return "\"" + sl.Value + "\"" }

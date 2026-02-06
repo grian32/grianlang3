@@ -43,3 +43,7 @@ void dbg_bool(bool val) {
 void dbg_float(float val) {
     printf("dbgfloat: %.50f\n", val);
 }
+
+void dbg_str(const char* val) {
+    printf("dbgstr: %s\n", val);
+}
