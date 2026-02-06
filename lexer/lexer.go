@@ -127,9 +127,8 @@ func (l *Lexer) readString() string {
 	for l.ch != '"' {
 		l.readChar()
 	}
-	l.readChar()
 
-	return l.input[startPos : l.pos-1]
+	return l.input[startPos:l.pos]
 }
 
 func (l *Lexer) readHexaInt() string {

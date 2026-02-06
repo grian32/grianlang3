@@ -3,6 +3,7 @@ import "dbg"
 fnc main() -> int32 {
     def char* x = "hello, world!";
     dbg_str(x);
+    dbg_str("hello, world!");
 
     return 0i32
 }
