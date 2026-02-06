@@ -1,9 +1,10 @@
+import "arrays"
 import "dbg"
 
 fnc main() -> int32 {
-    def char* x = "hello, world!";
-    dbg_str(x);
-    dbg_str("hello, world!");
+    def int32* x = (arr_new(sizeof int32)) as int32*;
+    arr_push(&x, 4i32);
+    dbg_i32(x[0]);
 
-    return 0i32
+    return 0i32;
 }

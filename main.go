@@ -15,7 +15,16 @@ import (
 var builtinFs embed.FS
 
 func main() {
+retry:
 	if err := os.Mkdir("./lltemp", os.ModePerm); err != nil {
+		if os.IsExist(err) {
+			err := os.RemoveAll("./lltemp")
+			if err != nil {
+				log.Fatal(err)
+			}
+			goto retry
+		}
+
 		log.Fatal(err)
 	}
 	files := os.Args[1:]

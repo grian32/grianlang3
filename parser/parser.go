@@ -186,13 +186,14 @@ func (p *Parser) parseIntegerLiteral() Expression {
 			lit.Type.Base = lexer.Uint
 		}
 		p.NextToken()
+		p.NextToken()
 	}
 
 	return lit
 }
 
 func (p *Parser) parseStringLiteral() Expression {
-	return &StringLiteral{ Token: p.currToken, Value: p.currToken.Literal }
+	return &StringLiteral{Token: p.currToken, Value: p.currToken.Literal}
 }
 
 func (p *Parser) parseSizeofExpression() Expression {
@@ -205,6 +206,7 @@ func (p *Parser) parseSizeofExpression() Expression {
 	p.getPointers(&vt)
 
 	expr.Type = vt
+	p.NextToken()
 
 	return expr
 }
@@ -257,6 +259,7 @@ func (p *Parser) parseReference() Expression {
 	if ident, ok := rhs.(*IdentifierExpression); ok {
 		expr.Var = ident
 	}
+	p.NextToken()
 	return expr
 }
 
@@ -300,6 +303,7 @@ func (p *Parser) parseArrayIndexExpression(left Expression) Expression {
 	if !p.expectPeek(lexer.RBRACKET) {
 		return nil
 	}
+	p.NextToken()
 
 	return &DereferenceExpression{
 		Token: derefToken,
@@ -366,7 +370,9 @@ func (p *Parser) parseCallExpression(left Expression) Expression {
 
 	for !p.currTokenIs(lexer.RPAREN) {
 		expr := p.parseExpression(LOWEST)
-		p.NextToken()
+		// next token should be done by each individual parsing function as necessary, doing it this way
+		// introduces rather strange bugs
+		//p.NextToken()
 		exp.Params = append(exp.Params, expr)
 		if p.currTokenIs(lexer.RPAREN) {
 			break
@@ -615,7 +621,7 @@ func (p *Parser) currPrecedence() byte {
 }
 
 func (p *Parser) noPrefixParseFnError(t lexer.Token) {
-	msg := fmt.Sprintf("no prefix parse function for %d found", t.Type)
+	msg := fmt.Sprintf("no prefix parse function for %s, peek=%s found", t.Type.String(), p.peekToken.Type.String())
 	p.Errors = append(p.Errors, msg)
 }
 
