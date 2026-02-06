@@ -364,7 +364,6 @@ func (p *Parser) parseCallExpression(left Expression) Expression {
 	} else {
 		return nil
 	}
-	p.NextToken()
 
 	exp.Params = []Expression{}
 
