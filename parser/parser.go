@@ -195,7 +195,7 @@ func (p *Parser) parseIntegerLiteral() Expression {
 }
 
 func (p *Parser) parseStringLiteral() Expression {
-	expr := &StringLiteral{Token: p.currToken, Value: p.currToken.Literal}
+	expr := &StringLiteral{Token: p.currToken, Value: p.currToken.Literal + "\000"}
 	p.NextToken()
 	return expr
 }

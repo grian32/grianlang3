@@ -28,9 +28,14 @@ retry:
 		log.Fatal(err)
 	}
 	files := os.Args[1:]
+	// TODO: clean this up, use an actual cli lib :S
 	keepll := false
+	dbg := false
 	if files[0] == "--keepll" {
 		keepll = true
+		files = os.Args[2:]
+	} else if files[0] == "--dbg" {
+		dbg = true
 		files = os.Args[2:]
 	}
 	var llFiles []string
@@ -43,11 +48,13 @@ retry:
 		l := lexer.New(string(input))
 		p := parser.New(l)
 		program := p.ParseProgram()
+		if dbg {
+			log.Printf("%s: %s", file, program.String())
+		}
 		if len(p.Errors) != 0 {
 			for _, err := range p.Errors {
 				log.Printf("%s: parser error: %s\n", file, err)
 			}
-			log.Printf("%s: %s", file, program.String())
 			fatalAndCleanup(keepll, "%s: exiting after parser errors\n", file)
 		}
 		e := emitter.New()

@@ -40,13 +40,18 @@ var builtinModules = map[string]map[string]BuiltinDef{
 		"dbg_u8":    NewBuiltinDef(types.Void, newVt(lexer.Void), types.I8),
 		"dbg_float": NewBuiltinDef(types.Void, newVt(lexer.Void), types.Float),
 		"dbg_bool":  NewBuiltinDef(types.Void, newVt(lexer.Void), types.I1),
-		"dbg_str": NewBuiltinDef(types.Void, newVt(lexer.Void), types.I8Ptr),
+		"dbg_str":   NewBuiltinDef(types.Void, newVt(lexer.Void), types.I8Ptr),
 	},
 	//"malloc":    NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.Int8, 1), types.I64),
 	"arrays": {
 		"arr_new":  NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.None, 1), types.I64),
 		"arr_push": NewBuiltinDef(types.Void, newVt(lexer.None), types.I8Ptr, types.I8Ptr),
 		"arr_free": NewBuiltinDef(types.Void, newVt(lexer.None), types.I8Ptr),
+	},
+	"strings": {
+		"dynstr":     NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.Int8, 1), types.I8Ptr),
+		"str_append": NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.Int8, 1), types.I8Ptr, types.I8Ptr),
+		"str_len":    NewBuiltinDef(types.I64, newVt(lexer.Uint), types.I8Ptr),
 	},
 }
 
