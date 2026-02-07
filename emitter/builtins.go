@@ -52,6 +52,7 @@ var builtinModules = map[string]map[string]BuiltinDef{
 		"dynstr":     NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.Int8, 1), types.I8Ptr),
 		"str_append": NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.Int8, 1), types.I8Ptr, types.I8Ptr),
 		"str_len":    NewBuiltinDef(types.I64, newVt(lexer.Uint), types.I8Ptr),
+		"str_free":   NewBuiltinDef(types.Void, newVt(lexer.Void), types.I8Ptr),
 	},
 }
 

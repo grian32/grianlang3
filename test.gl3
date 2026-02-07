@@ -7,5 +7,6 @@ fnc main() -> int32 {
     def char* new = str_append(xdyn, " abc");
     dbg_str(new);
     dbg_u64(str_len(new));
+    str_free(xdyn);
     return 0i32;
 }

@@ -24,3 +24,7 @@ char* str_append(char* a, char* b) {
 uint64_t str_len(char* a) {
     return (uint64_t)strlen(a);
 }
+
+void str_free(char* a) {
+    free(a);
+}

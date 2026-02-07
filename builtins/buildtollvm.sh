@@ -1,5 +1,5 @@
 #!/bin/bash
 
 for f in ./*.c ; do
-  clang -S -emit-llvm -O2 "$f" -o "${f%.c}.ll"
+  clang -S -O3 -emit-llvm -O2 "$f" -o "${f%.c}.ll"
 done
