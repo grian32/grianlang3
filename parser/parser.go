@@ -135,7 +135,9 @@ func (p *Parser) parsePrefixExpression() Expression {
 }
 
 func (p *Parser) parseIdentifier() Expression {
-	return &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
+	expr := &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
+	p.NextToken()
+	return expr
 }
 
 func (p *Parser) parseGroupedExpression() Expression {
@@ -193,7 +195,9 @@ func (p *Parser) parseIntegerLiteral() Expression {
 }
 
 func (p *Parser) parseStringLiteral() Expression {
-	return &StringLiteral{Token: p.currToken, Value: p.currToken.Literal}
+	expr := &StringLiteral{Token: p.currToken, Value: p.currToken.Literal}
+	p.NextToken()
+	return expr
 }
 
 func (p *Parser) parseSizeofExpression() Expression {
@@ -382,6 +386,7 @@ func (p *Parser) parseCallExpression(left Expression) Expression {
 			return nil
 		}
 	}
+	p.NextToken()
 
 	return exp
 }
@@ -589,8 +594,8 @@ func (p *Parser) parseExpression(precendence byte) Expression {
 	}
 	leftExp := prefix()
 
-	for !p.peekTokenIs(lexer.SEMICOLON) && precendence < p.peekPrecedence() {
-		infix := p.infixParseFns[p.peekToken.Type]
+	for !p.peekTokenIs(lexer.SEMICOLON) && precendence < p.currPrecedence() {
+		infix := p.infixParseFns[p.currToken.Type]
 		if infix == nil {
 			return leftExp
 		}
