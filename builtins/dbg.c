@@ -47,3 +47,7 @@ void dbg_float(float val) {
 void dbg_str(const char* val) {
     printf("dbgstr: %s\n", val);
 }
+
+void dbg_char(char val) {
+    printf("dbgchar: %c(%d)\n", val, val);
+}

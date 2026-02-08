@@ -43,6 +43,7 @@ const (
 	RBRACKET
 	IMPORT
 	STRING
+	CHAR
 	EOF
 )
 

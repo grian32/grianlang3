@@ -41,6 +41,7 @@ var builtinModules = map[string]map[string]BuiltinDef{
 		"dbg_float": NewBuiltinDef(types.Void, newVt(lexer.Void), types.Float),
 		"dbg_bool":  NewBuiltinDef(types.Void, newVt(lexer.Void), types.I1),
 		"dbg_str":   NewBuiltinDef(types.Void, newVt(lexer.Void), types.I8Ptr),
+		"dbg_char":  NewBuiltinDef(types.Void, newVt(lexer.Void), types.I8),
 	},
 	//"malloc":    NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.Int8, 1), types.I64),
 	"arrays": {

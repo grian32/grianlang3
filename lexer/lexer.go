@@ -115,6 +115,16 @@ func (l *Lexer) NextToken() Token {
 			//tok.VarType = VarType{Base: Int8, Pointer: 1};
 			tok.Literal = l.readString()
 		}
+
+		if l.ch == '\'' {
+			l.readChar()
+			tok.Type = CHAR
+			if l.ch == '\'' {
+				tok.Literal = ""
+			} else {
+				tok.Literal = string(l.ch)
+			}
+		}
 	}
 
 	l.readChar()

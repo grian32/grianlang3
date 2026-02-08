@@ -1,12 +1,7 @@
 import "dbg"
-import "strings"
 
 fnc main() -> int32 {
-    def char* x = "const";
-    def char* xdyn = dynstr(x);
-    def char* new = str_append(xdyn, " abc");
-    dbg_str(new);
-    dbg_u64(str_len(new));
-    str_free(xdyn);
+    def char x = 'a';
+    dbg_char(x);
     return 0i32;
 }
