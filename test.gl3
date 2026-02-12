@@ -1,7 +1,13 @@
 import "dbg"
+import "asm"
 
 fnc main() -> int32 {
-    def char x = 'a';
-    dbg_char(x);
+    def int32* staticarr = __asm__salloc(3, (sizeof int32));
+    staticarr[0] = 1i32;
+    staticarr[1] = 2i32;
+    staticarr[2] = 3i32;
+    dbg_i32(staticarr[0]);
+    dbg_i32(staticarr[1]);
+    dbg_i32(staticarr[2]);
     return 0i32;
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"grianlang3/lexer"
 	"grianlang3/parser"
+	"log"
 	"os"
 	"strings"
 
@@ -30,6 +31,9 @@ type Emitter struct {
 	stringLiterals map[string]*ir.Global
 
 	builtinModules []string
+
+	asmModuleImported bool
+	astFuncs          map[string]struct{}
 }
 
 func New() *Emitter {
@@ -43,6 +47,10 @@ func New() *Emitter {
 	e.parametersGlTypes = make(map[string]lexer.VarType)
 	e.varGlTypes = make(map[string]lexer.VarType)
 	e.stringLiterals = make(map[string]*ir.Global)
+	e.asmModuleImported = false
+	e.astFuncs = map[string]struct{}{
+		"__asm__salloc": {},
+	}
 
 	//fnc = e.m.NewFunc("malloc", types.I32Ptr, ir.NewParam("val", types.I64Ptr))
 	//e.functions["malloc"] = fnc
@@ -299,6 +307,9 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 		}
 		return entry.NewLoad(vType, vPtr), e.varGlTypes[node.Value]
 	case *parser.CallExpression:
+		if _, ok := e.astFuncs[node.Function.Value]; ok && e.asmModuleImported {
+			return e.emitAsmIntrinsic(entry, node.Function.Value, node.Params)
+		}
 		var args []value.Value
 
 		for _, a := range node.Params {
@@ -464,6 +475,8 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 				e.functions[d.Name] = fnc
 				e.functionGlReturnTypes[d.Name] = d.ReturnType
 			}
+		} else if node.Path == "asm" {
+			e.asmModuleImported = true
 		} else {
 			err := AddBuiltinModule(e, node.Path)
 			if err != nil {
@@ -507,6 +520,37 @@ func (e *Emitter) emitAddress(node parser.Node, entry *ir.Block) (value.Value, l
 		return ptr, t
 	default:
 		fmt.Printf("compile error: invalid node type for emitAddress\n")
+		return nil, lexer.VarType{}
+	}
+}
+
+func (e *Emitter) emitAsmIntrinsic(entry *ir.Block, fnc string, args []parser.Expression) (value.Value, lexer.VarType) {
+	switch fnc {
+	case "__asm__salloc":
+		if len(args) != 2 {
+			log.Fatalf("compiler error: invalid amount of arguments for __asm__salloc: %d\n", len(args))
+		}
+		size, ok := args[0].(*parser.IntegerLiteral)
+		if !ok {
+			log.Fatalf("compiler error: first argument of __asm__salloc is not integer: %T", args[0])
+		}
+		sizeof, ok := args[1].(*parser.SizeofExpression)
+		if !ok {
+			log.Fatalf("compiler error: second argument of __asm__salloc is not sizeof expr: %T", args[1])
+		}
+		var arrSize uint64
+		if _, ok := glTypeUInts[size.Type.Base]; ok {
+			arrSize = size.UValue
+		} else {
+			arrSize = uint64(size.Value)
+		}
+		vt := sizeof.Type
+		lt := types.NewArray(arrSize, varTypeToLlvm(vt))
+		ptr := entry.NewAlloca(lt)
+		vt.Pointer++
+		return entry.NewBitCast(ptr, varTypeToLlvm(vt)), vt // or gep into elem 0? this seems more suitable..
+	default:
+		log.Fatalf("compiler error: unknown asm intrinsic function: %s, %v\n", fnc, args)
 		return nil, lexer.VarType{}
 	}
 }

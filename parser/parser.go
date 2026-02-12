@@ -171,8 +171,9 @@ func (p *Parser) parseIntegerLiteral() Expression {
 	lit.Value = value
 	lit.UValue = uvalue
 
-	if p.peekTokenIs(lexer.IDENTIFIER) {
-		switch p.peekToken.Literal {
+	p.NextToken()
+	if p.currTokenIs(lexer.IDENTIFIER) {
+		switch p.currToken.Literal {
 		case "i32":
 			lit.Type.Base = lexer.Int32
 		case "i16":
@@ -188,7 +189,6 @@ func (p *Parser) parseIntegerLiteral() Expression {
 		case "u64":
 			lit.Type.Base = lexer.Uint
 		}
-		p.NextToken()
 		p.NextToken()
 	}
 
@@ -284,7 +284,6 @@ func (p *Parser) parseAssignExpression(left Expression) Expression {
 		p.Errors = append(p.Errors, fmt.Sprintf("got %T on lhs of assignment, expected ident or deref", left))
 	}
 
-	p.NextToken()
 	expr.Right = p.parseExpression(LOWEST)
 
 	return expr
@@ -307,12 +306,8 @@ func (p *Parser) parseDereference() Expression {
 // to keep the same semantics
 func (p *Parser) parseArrayIndexExpression(left Expression) Expression {
 	derefToken := p.currToken
-	if !p.currTokenIs(lexer.LBRACKET) {
-		return nil
-	}
-	p.NextToken()
 	index := p.parseExpression(LOWEST)
-	if !p.expectPeek(lexer.RBRACKET) {
+	if !p.currTokenIs(lexer.RBRACKET) {
 		return nil
 	}
 	p.NextToken()
@@ -386,6 +381,7 @@ func (p *Parser) parseCallExpression(left Expression) Expression {
 		//p.NextToken()
 		exp.Params = append(exp.Params, expr)
 		if p.currTokenIs(lexer.RPAREN) {
+			p.NextToken()
 			break
 		} else if p.currTokenIs(lexer.COMMA) {
 			p.NextToken()
@@ -441,7 +437,9 @@ func (p *Parser) parseBlockStatement() *BlockStatement {
 		if stmt != nil {
 			bs.Statements = append(bs.Statements, stmt)
 		}
-		p.NextToken()
+		if p.currTokenIs(lexer.SEMICOLON) {
+			p.NextToken()
+		}
 	}
 
 	return bs
