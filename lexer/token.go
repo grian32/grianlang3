@@ -44,6 +44,8 @@ const (
 	IMPORT
 	STRING
 	CHAR
+	IF
+	ELSE
 	EOF
 )
 

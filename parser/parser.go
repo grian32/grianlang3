@@ -404,9 +404,39 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseFunctionStatement()
 	} else if p.currTokenIs(lexer.IMPORT) {
 		return p.parseImportStatement()
+	} else if p.currTokenIs(lexer.IF) {
+		return p.parseIfStatement()
 	}
 
 	return p.parseExpressionStatement()
+}
+
+func (p *Parser) parseIfStatement() Statement {
+	stmt := &IfStatement{Token: p.currToken}
+	p.NextToken() // past IF token
+	cond := p.parseExpression(LOWEST)
+	stmt.Condition = cond
+	if !p.expectCurr(lexer.LBRACE) {
+		return nil
+	}
+	stmt.Success = p.parseBlockStatement()
+	if !p.expectCurr(lexer.RBRACE) {
+		return nil
+	}
+
+	if !p.currTokenIs(lexer.ELSE) {
+		return stmt
+	}
+	p.NextToken()
+	if !p.expectCurr(lexer.LBRACE) {
+		return nil
+	}
+	stmt.Fail = p.parseBlockStatement()
+	if !p.expectCurr(lexer.RBRACE) {
+		return nil
+	}
+
+	return stmt
 }
 
 func (p *Parser) parseImportStatement() Statement {
@@ -644,6 +674,21 @@ func (p *Parser) expectPeek(t lexer.TokenType) bool {
 	p.peekError(t)
 	return false
 }
+
 func (p *Parser) peekError(t lexer.TokenType) {
 	p.Errors = append(p.Errors, fmt.Sprintf("expected next token to be %s, got %s instead", t, p.peekToken.Type))
+}
+
+func (p *Parser) expectCurr(t lexer.TokenType) bool {
+	if p.currTokenIs(t) {
+		p.NextToken()
+		return true
+	}
+
+	p.currError(t)
+	return false
+}
+
+func (p *Parser) currError(t lexer.TokenType) {
+	p.Errors = append(p.Errors, fmt.Sprintf("expected curr token to be %s, got %s instead", t, p.peekToken.Type))
 }

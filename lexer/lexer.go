@@ -241,6 +241,10 @@ func identLookup(lit string) (TokenType, BaseVarType) {
 		return IMPORT, None
 	case "char":
 		return TYPE, Char
+	case "if":
+		return IF, None
+	case "else":
+		return ELSE, None
 	}
 
 	return IDENTIFIER, None

@@ -16,7 +16,10 @@ import (
 )
 
 type Emitter struct {
-	m *ir.Module
+	m         *ir.Module
+	currBlock *ir.Block
+	currFnc   *ir.Func
+
 	// var, vartypes, params get reset after each function is emitted.
 	variables         map[string]*ir.InstAlloca
 	varTypes          map[string]types.Type
@@ -25,7 +28,6 @@ type Emitter struct {
 	parametersGlTypes map[string]lexer.VarType
 
 	functions             map[string]*ir.Func
-	functionBlocks        map[string]*ir.Block
 	functionGlReturnTypes map[string]lexer.VarType
 
 	stringLiterals map[string]*ir.Global
@@ -36,12 +38,18 @@ type Emitter struct {
 	astFuncs          map[string]struct{}
 }
 
+// VariableState used simply for transport when restoring state across if stmt blocks
+type VariableState struct {
+	variables  map[string]*ir.InstAlloca
+	varTypes   map[string]types.Type
+	varGlTypes map[string]lexer.VarType
+}
+
 func New() *Emitter {
 	e := &Emitter{m: ir.NewModule()}
 	e.variables = make(map[string]*ir.InstAlloca)
 	e.varTypes = make(map[string]types.Type)
 	e.functions = make(map[string]*ir.Func)
-	e.functionBlocks = make(map[string]*ir.Block)
 	e.parameters = make(map[string]*ir.Param)
 	e.functionGlReturnTypes = make(map[string]lexer.VarType)
 	e.parametersGlTypes = make(map[string]lexer.VarType)
@@ -107,18 +115,18 @@ var glTypeUInts = map[lexer.BaseVarType]struct{}{
 	lexer.Uint:   {},
 }
 
-func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.VarType) {
+func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 	switch node := node.(type) {
 	case *parser.Program:
 		var last value.Value
 		var lastType lexer.VarType
 		for _, s := range node.Statements {
-			last, lastType = e.Emit(s, entry)
+			last, lastType = e.Emit(s)
 		}
 
 		return last, lastType
 	case *parser.ExpressionStatement:
-		return e.Emit(node.Expression, entry)
+		return e.Emit(node.Expression)
 	case *parser.IntegerLiteral:
 		/**
 		fnc main() -> int32 {
@@ -141,8 +149,8 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 		return constant.NewFloat(types.Float, float64(node.Value)), lexer.VarType{Base: lexer.Float, Pointer: 0}
 	case *parser.InfixExpression:
 		// TODO: clean this pile of shit up
-		left, leftVt := e.Emit(node.Left, entry)
-		right, rightVt := e.Emit(node.Right, entry)
+		left, leftVt := e.Emit(node.Left)
+		right, rightVt := e.Emit(node.Right)
 
 		leftType := left.Type()
 		rightType := right.Type()
@@ -158,56 +166,56 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 
 		if ptr, ok := leftType.(*types.PointerType); ok && rightIntOk {
 			if node.Operator == "+" {
-				return entry.NewGetElementPtr(ptr.ElemType, left, right), leftVt
+				return e.currBlock.NewGetElementPtr(ptr.ElemType, left, right), leftVt
 			} else if node.Operator == "-" {
 				intType := rightType.(*types.IntType)
 				zero := constant.NewInt(intType, 0)
-				negRight := entry.NewSub(zero, right)
-				return entry.NewGetElementPtr(ptr.ElemType, left, negRight), leftVt
+				negRight := e.currBlock.NewSub(zero, right)
+				return e.currBlock.NewGetElementPtr(ptr.ElemType, left, negRight), leftVt
 			}
 		}
 
 		if leftIntOk && rightIntOk && leftVt == rightVt {
 			switch node.Operator {
 			case "+":
-				return entry.NewAdd(left, right), leftVt
+				return e.currBlock.NewAdd(left, right), leftVt
 			case "-":
-				return entry.NewSub(left, right), leftVt
+				return e.currBlock.NewSub(left, right), leftVt
 			case "*":
-				return entry.NewMul(left, right), leftVt
+				return e.currBlock.NewMul(left, right), leftVt
 			case "==":
-				return entry.NewICmp(enum.IPredEQ, left, right), leftVt
+				return e.currBlock.NewICmp(enum.IPredEQ, left, right), leftVt
 			case "!=":
-				return entry.NewICmp(enum.IPredNE, left, right), leftVt
+				return e.currBlock.NewICmp(enum.IPredNE, left, right), leftVt
 			}
 
 			if _, ok := glTypeUInts[leftVt.Base]; ok {
 				switch node.Operator {
 				case "/":
 					// TODO: def behaviour for /0, intmin/-1
-					return entry.NewUDiv(left, right), leftVt
+					return e.currBlock.NewUDiv(left, right), leftVt
 				case "<":
-					return entry.NewICmp(enum.IPredULT, left, right), leftVt
+					return e.currBlock.NewICmp(enum.IPredULT, left, right), leftVt
 				case ">":
-					return entry.NewICmp(enum.IPredUGT, left, right), leftVt
+					return e.currBlock.NewICmp(enum.IPredUGT, left, right), leftVt
 				case "<=":
-					return entry.NewICmp(enum.IPredULE, left, right), leftVt
+					return e.currBlock.NewICmp(enum.IPredULE, left, right), leftVt
 				case ">=":
-					return entry.NewICmp(enum.IPredUGE, left, right), leftVt
+					return e.currBlock.NewICmp(enum.IPredUGE, left, right), leftVt
 				}
 			} else if _, ok := glTypeSInts[leftVt.Base]; ok {
 				switch node.Operator {
 				case "/":
 					// TODO: def behaviour for /0, intmin/-1
-					return entry.NewSDiv(left, right), leftVt
+					return e.currBlock.NewSDiv(left, right), leftVt
 				case "<":
-					return entry.NewICmp(enum.IPredSGT, left, right), leftVt
+					return e.currBlock.NewICmp(enum.IPredSGT, left, right), leftVt
 				case ">":
-					return entry.NewICmp(enum.IPredSGT, left, right), leftVt
+					return e.currBlock.NewICmp(enum.IPredSGT, left, right), leftVt
 				case "<=":
-					return entry.NewICmp(enum.IPredSLE, left, right), leftVt
+					return e.currBlock.NewICmp(enum.IPredSLE, left, right), leftVt
 				case ">=":
-					return entry.NewICmp(enum.IPredSGE, left, right), leftVt
+					return e.currBlock.NewICmp(enum.IPredSGE, left, right), leftVt
 				}
 			}
 		}
@@ -215,35 +223,35 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 		if leftFloatOk && rightFloatOk {
 			switch node.Operator {
 			case "+":
-				return entry.NewFAdd(left, right), leftVt
+				return e.currBlock.NewFAdd(left, right), leftVt
 			case "-":
-				return entry.NewFSub(left, right), leftVt
+				return e.currBlock.NewFSub(left, right), leftVt
 			case "*":
-				return entry.NewFMul(left, right), leftVt
+				return e.currBlock.NewFMul(left, right), leftVt
 			case "/":
 				// TODO: def behaviour for /0, intmin/-1
-				return entry.NewFDiv(left, right), leftVt
+				return e.currBlock.NewFDiv(left, right), leftVt
 			case "<":
-				return entry.NewFCmp(enum.FPredOLT, left, right), leftVt
+				return e.currBlock.NewFCmp(enum.FPredOLT, left, right), leftVt
 			case ">":
-				return entry.NewFCmp(enum.FPredOGT, left, right), leftVt
+				return e.currBlock.NewFCmp(enum.FPredOGT, left, right), leftVt
 			case "<=":
-				return entry.NewFCmp(enum.FPredOLE, left, right), leftVt
+				return e.currBlock.NewFCmp(enum.FPredOLE, left, right), leftVt
 			case ">=":
-				return entry.NewFCmp(enum.FPredOGE, left, right), leftVt
+				return e.currBlock.NewFCmp(enum.FPredOGE, left, right), leftVt
 			case "==":
-				return entry.NewFCmp(enum.FPredOEQ, left, right), leftVt
+				return e.currBlock.NewFCmp(enum.FPredOEQ, left, right), leftVt
 			case "!=":
-				return entry.NewFCmp(enum.FPredONE, left, right), leftVt
+				return e.currBlock.NewFCmp(enum.FPredONE, left, right), leftVt
 			}
 		}
 
 		if leftType == types.I1 && rightType == types.I1 {
 			switch node.Operator {
 			case "&&":
-				return entry.NewAnd(left, right), leftVt
+				return e.currBlock.NewAnd(left, right), leftVt
 			case "||":
-				return entry.NewOr(left, right), leftVt
+				return e.currBlock.NewOr(left, right), leftVt
 			}
 		}
 
@@ -251,31 +259,31 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 	case *parser.PrefixExpression:
 		switch node.Operator {
 		case "!":
-			right, rt := e.Emit(node.Right, entry)
+			right, rt := e.Emit(node.Right)
 			// TODO: check right == i1
 			trueVal := constant.NewInt(types.I1, 1)
-			return entry.NewXor(right, trueVal), rt
+			return e.currBlock.NewXor(right, trueVal), rt
 		case "-":
-			right, rt := e.Emit(node.Right, entry)
+			right, rt := e.Emit(node.Right)
 			_, rightIntOk := glTypeSInts[rt.Base]
 			_, rightFloatOk := right.Type().(*types.FloatType)
 			if rightIntOk {
 				zero := constant.NewInt(right.Type().(*types.IntType), 0)
-				return entry.NewSub(zero, right), rt
+				return e.currBlock.NewSub(zero, right), rt
 			} else if rightFloatOk {
 				zero := constant.NewFloat(types.Float, 0)
-				return entry.NewFSub(zero, right), rt
+				return e.currBlock.NewFSub(zero, right), rt
 			}
 		}
 	case *parser.DefStatement:
 		lt := varTypeToLlvm(node.Type)
-		right, vt := e.Emit(node.Right, entry)
+		right, vt := e.Emit(node.Right)
 
-		vPtr := entry.NewAlloca(lt)
+		vPtr := e.currBlock.NewAlloca(lt)
 		e.variables[node.Name.Value] = vPtr
 		e.varTypes[node.Name.Value] = lt
 		e.varGlTypes[node.Name.Value] = vt
-		entry.NewStore(right, vPtr)
+		e.currBlock.NewStore(right, vPtr)
 		return right, vt
 	case *parser.AssignmentExpression:
 		if ident, ok := node.Left.(*parser.IdentifierExpression); ok {
@@ -283,13 +291,13 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 			if !ok {
 				fmt.Printf("compile error: couldn't find variable of name %s used in var assignment", ident.Value)
 			}
-			right, vt := e.Emit(node.Right, entry)
-			entry.NewStore(right, vPtr)
+			right, vt := e.Emit(node.Right)
+			e.currBlock.NewStore(right, vPtr)
 			return right, vt
 		} else if _, ok := node.Left.(*parser.DereferenceExpression); ok {
-			ptr, _ := e.emitAddress(node.Left, entry)
-			right, vt := e.Emit(node.Right, entry)
-			entry.NewStore(right, ptr)
+			ptr, _ := e.emitAddress(node.Left)
+			right, vt := e.Emit(node.Right)
+			e.currBlock.NewStore(right, ptr)
 			return right, vt
 		}
 	case *parser.IdentifierExpression:
@@ -305,15 +313,15 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 		if !ok {
 			fmt.Printf("compile error: couldn't find variable type of name %s used in var ref", node.Value)
 		}
-		return entry.NewLoad(vType, vPtr), e.varGlTypes[node.Value]
+		return e.currBlock.NewLoad(vType, vPtr), e.varGlTypes[node.Value]
 	case *parser.CallExpression:
 		if _, ok := e.astFuncs[node.Function.Value]; ok && e.asmModuleImported {
-			return e.emitAsmIntrinsic(entry, node.Function.Value, node.Params)
+			return e.emitAsmIntrinsic(node.Function.Value, node.Params)
 		}
 		var args []value.Value
 
 		for _, a := range node.Params {
-			val, _ := e.Emit(a, entry)
+			val, _ := e.Emit(a)
 			args = append(args, val)
 		}
 
@@ -322,7 +330,7 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 			fmt.Printf("compile error: couldn't find function with name %s", node.Function.Value)
 		}
 
-		return entry.NewCall(fncPtr, args...), e.functionGlReturnTypes[node.Function.Value]
+		return e.currBlock.NewCall(fncPtr, args...), e.functionGlReturnTypes[node.Function.Value]
 	case *parser.FunctionStatement:
 		retType := varTypeToLlvm(node.Type)
 		var paramTypes []*ir.Param
@@ -339,31 +347,33 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 
 		fncPtr := e.m.NewFunc(node.Name.Value, retType, paramTypes...)
 		e.functions[node.Name.Value] = fncPtr
-		block := fncPtr.NewBlock("")
-		e.functionBlocks[node.Name.Value] = block
+		e.currBlock = fncPtr.NewBlock("")
+		e.currFnc = fncPtr
 		e.functionGlReturnTypes[node.Name.Value] = node.Type
 
 		foundRet := false
 
 		for _, s := range node.Body.Statements {
-			// ehh???
+			// ehh??? maybe need to check if ret type none ? this allows an implicit return which i ... dislike
 			if _, ok := s.(*parser.ReturnStatement); !foundRet && ok {
 				foundRet = true
 			}
-			e.Emit(s, block)
+			e.Emit(s)
 		}
 
 		if !foundRet {
-			block.NewRet(nil)
+			e.currBlock.NewRet(nil)
 		}
 
 		e.parameters = make(map[string]*ir.Param)
+		e.parametersGlTypes = make(map[string]lexer.VarType)
 		e.variables = make(map[string]*ir.InstAlloca)
 		e.varTypes = make(map[string]types.Type)
+		e.varGlTypes = make(map[string]lexer.VarType)
 		return fncPtr, node.Type
 	case *parser.ReturnStatement:
-		val, vt := e.Emit(node.Expr, entry)
-		entry.NewRet(val)
+		val, vt := e.Emit(node.Expr)
+		e.currBlock.NewRet(val)
 		return val, vt
 	case *parser.ReferenceExpression:
 		vPtr, ok := e.variables[node.Var.Value]
@@ -372,16 +382,16 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 		}
 		return vPtr, e.varGlTypes[node.Var.Value]
 	case *parser.DereferenceExpression:
-		ptr, vt := e.Emit(node.Var, entry)
+		ptr, vt := e.Emit(node.Var)
 
 		ptrTy, ok := ptr.Type().(*types.PointerType)
 		if !ok {
 			fmt.Printf("compile error: cannot deref non-ptr type %v\n", ptrTy)
 		}
 
-		return entry.NewLoad(ptrTy.ElemType, ptr), vt
+		return e.currBlock.NewLoad(ptrTy.ElemType, ptr), vt
 	case *parser.CastExpression:
-		src, lt := e.Emit(node.Expr, entry)
+		src, lt := e.Emit(node.Expr)
 		srcType := src.Type()
 		dstType := varTypeToLlvm(node.Type)
 
@@ -397,32 +407,32 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 
 		if leftIntOk && rightIntOk && node.Type.Pointer == 0 {
 			if srcType == types.I1 {
-				return entry.NewZExt(src, dstType), node.Type
+				return e.currBlock.NewZExt(src, dstType), node.Type
 			}
 
 			dstSize := getSizeForVarType(node.Type)
 			srcSize := getSizeForLlvmType(src.Type())
 
 			if srcSize < dstSize {
-				return entry.NewSExt(src, dstType), node.Type
+				return e.currBlock.NewSExt(src, dstType), node.Type
 			} else if srcSize > dstSize {
-				return entry.NewTrunc(src, dstType), node.Type
+				return e.currBlock.NewTrunc(src, dstType), node.Type
 			} else {
 				// same size, no cast necessary
 				return src, lt
 			}
 		} else if leftIntOk && node.Type.Pointer > 0 {
-			return entry.NewIntToPtr(src, dstType), node.Type
+			return e.currBlock.NewIntToPtr(src, dstType), node.Type
 		} else if _, ok := src.Type().(*types.PointerType); ok && rightIntOk && node.Type.Pointer == 0 {
 			if node.Type.Base != lexer.Int {
 				// non 64 bit which is llvm default on most (i.e 64bit) systems
 				fmt.Printf("compile warning: pointer to int cast may truncate")
 			}
-			return entry.NewPtrToInt(src, varTypeToLlvm(node.Type)), node.Type
+			return e.currBlock.NewPtrToInt(src, varTypeToLlvm(node.Type)), node.Type
 		} else if leftIntOk && rightFloatOk {
-			return entry.NewSIToFP(src, dstType), node.Type
+			return e.currBlock.NewSIToFP(src, dstType), node.Type
 		} else if leftFloatOk && rightIntOk {
-			return entry.NewFPToSI(src, dstType), node.Type
+			return e.currBlock.NewFPToSI(src, dstType), node.Type
 		} else if leftPtrOk && rightPtrOk {
 			/** c bitcast behaviour
 			  int x = 1073741941; // 0100 0000 0000 0000 0000 0000 0111 0101 = 1073741941; as float = 2.somethingsomething
@@ -431,7 +441,7 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 			  printf("%.100f", *fx); == 2.somethingsomething
 			  return 0;
 			*/
-			return entry.NewBitCast(src, dstType), node.Type
+			return e.currBlock.NewBitCast(src, dstType), node.Type
 		}
 	case *parser.SizeofExpression:
 		return constant.NewInt(types.I64, getSizeForVarType(node.Type)), lexer.VarType{Base: lexer.Uint, Pointer: 0}
@@ -446,14 +456,14 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 		}
 
 		sizeInt := constant.NewInt(types.I64, getSizeForVarType(node.Type))
-		newCall := entry.NewCall(newFnc, sizeInt)
+		newCall := e.currBlock.NewCall(newFnc, sizeInt)
 		node.Type.Pointer++
-		newCallCasted := entry.NewBitCast(newCall, varTypeToLlvm(node.Type))
-		ptr := entry.NewAlloca(varTypeToLlvm(node.Type))
-		entry.NewStore(newCallCasted, ptr)
+		newCallCasted := e.currBlock.NewBitCast(newCall, varTypeToLlvm(node.Type))
+		ptr := e.currBlock.NewAlloca(varTypeToLlvm(node.Type))
+		e.currBlock.NewStore(newCallCasted, ptr)
 		for _, elem := range node.Items {
-			v, _ := e.Emit(elem, entry)
-			entry.NewCall(push, ptr, v)
+			v, _ := e.Emit(elem)
+			e.currBlock.NewCall(push, ptr, v)
 		}
 
 		// possibly dangerous?
@@ -496,13 +506,52 @@ func (e *Emitter) Emit(node parser.Node, entry *ir.Block) (value.Value, lexer.Va
 		e.stringLiterals[node.Value] = str
 
 		return constant.NewGetElementPtr(str.ContentType, str, zero, zero), sVt
+	case *parser.IfStatement:
+		cond, _ := e.Emit(node.Condition)
+		thenBlock := e.currFnc.NewBlock("")
+		endBlock := e.currFnc.NewBlock("")
+
+		if node.Fail != nil {
+			elseBlock := e.currFnc.NewBlock("")
+			e.currBlock.NewCondBr(cond, thenBlock, elseBlock)
+
+			e.currBlock = thenBlock
+			saved := e.saveVariableState()
+			for _, s := range node.Success.Statements {
+				e.Emit(s)
+			}
+			e.currBlock.NewBr(endBlock)
+			e.loadVariableState(saved)
+			e.currBlock = elseBlock
+
+			saved = e.saveVariableState()
+			for _, s := range node.Fail.Statements {
+				e.Emit(s)
+			}
+			e.currBlock.NewBr(endBlock)
+			e.currBlock = endBlock
+			e.loadVariableState(saved)
+		} else {
+			e.currBlock.NewCondBr(cond, thenBlock, endBlock)
+			e.currBlock = thenBlock
+
+			saved := e.saveVariableState()
+			for _, s := range node.Success.Statements {
+				e.Emit(s)
+			}
+			e.currBlock.NewBr(endBlock)
+			e.currBlock = endBlock
+			e.loadVariableState(saved)
+		}
+
+		return nil, lexer.VarType{}
 	}
 
 	return nil, lexer.VarType{}
 }
 
 // emitAdress literally only necessary because i need the vptr from ident expr, deref expr is same as e.emit lol
-func (e *Emitter) emitAddress(node parser.Node, entry *ir.Block) (value.Value, lexer.VarType) {
+func (e *Emitter) emitAddress(node parser.Node) (value.Value, lexer.VarType) {
 	switch node := node.(type) {
 	case *parser.IdentifierExpression:
 		if param, ok := e.parameters[node.Value]; ok {
@@ -516,7 +565,7 @@ func (e *Emitter) emitAddress(node parser.Node, entry *ir.Block) (value.Value, l
 		vt.Pointer++
 		return vPtr, vt
 	case *parser.DereferenceExpression:
-		ptr, t := e.Emit(node.Var, entry)
+		ptr, t := e.Emit(node.Var)
 		return ptr, t
 	default:
 		fmt.Printf("compile error: invalid node type for emitAddress\n")
@@ -524,7 +573,7 @@ func (e *Emitter) emitAddress(node parser.Node, entry *ir.Block) (value.Value, l
 	}
 }
 
-func (e *Emitter) emitAsmIntrinsic(entry *ir.Block, fnc string, args []parser.Expression) (value.Value, lexer.VarType) {
+func (e *Emitter) emitAsmIntrinsic(fnc string, args []parser.Expression) (value.Value, lexer.VarType) {
 	switch fnc {
 	case "__asm__salloc":
 		if len(args) != 2 {
@@ -546,13 +595,41 @@ func (e *Emitter) emitAsmIntrinsic(entry *ir.Block, fnc string, args []parser.Ex
 		}
 		vt := sizeof.Type
 		lt := types.NewArray(arrSize, varTypeToLlvm(vt))
-		ptr := entry.NewAlloca(lt)
+		ptr := e.currBlock.NewAlloca(lt)
 		vt.Pointer++
-		return entry.NewBitCast(ptr, varTypeToLlvm(vt)), vt // or gep into elem 0? this seems more suitable..
+		return e.currBlock.NewBitCast(ptr, varTypeToLlvm(vt)), vt // or gep into elem 0? this seems more suitable..
 	default:
 		log.Fatalf("compiler error: unknown asm intrinsic function: %s, %v\n", fnc, args)
 		return nil, lexer.VarType{}
 	}
+}
+
+func (e *Emitter) saveVariableState() *VariableState {
+	state := &VariableState{
+		variables:  make(map[string]*ir.InstAlloca),
+		varTypes:   make(map[string]types.Type),
+		varGlTypes: make(map[string]lexer.VarType),
+	}
+
+	for k, v := range e.variables {
+		state.variables[k] = v
+	}
+
+	for k, v := range e.varTypes {
+		state.varTypes[k] = v
+	}
+
+	for k, v := range e.varGlTypes {
+		state.varGlTypes[k] = v
+	}
+
+	return state
+}
+
+func (e *Emitter) loadVariableState(state *VariableState) {
+	e.variables = state.variables
+	e.varTypes = state.varTypes
+	e.varGlTypes = state.varGlTypes
 }
 
 func varTypeToLlvm(vt lexer.VarType) types.Type {

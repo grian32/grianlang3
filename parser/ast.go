@@ -309,3 +309,28 @@ type StringLiteral struct {
 func (sl *StringLiteral) expressionNode()      { /* noop */ }
 func (sl *StringLiteral) TokenLiteral() string { return sl.Token.Literal }
 func (sl *StringLiteral) String() string       { return "\"" + sl.Value + "\"" }
+
+type IfStatement struct {
+	Token     lexer.Token
+	Condition Expression
+	Success   *BlockStatement
+	Fail      *BlockStatement
+}
+
+func (is *IfStatement) statementNode()       { /* noop */ }
+func (is *IfStatement) TokenLiteral() string { return is.Token.Literal }
+func (is *IfStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("if ")
+	out.WriteString(is.Condition.String())
+	out.WriteString(" { ")
+	out.WriteString(is.Success.String())
+	out.WriteString(" }")
+	if is.Fail != nil {
+		out.WriteString(" else { ")
+		out.WriteString(is.Fail.String())
+		out.WriteString(" }")
+	}
+
+	return out.String()
+}

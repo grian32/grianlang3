@@ -47,7 +47,7 @@ func main() {
 			fatalAndCleanup(*keepll, "%s: exiting after parser errors\n", file)
 		}
 		e := emitter.New()
-		e.Emit(program, nil)
+		e.Emit(program)
 		llvmIr := e.Module()
 		fileName := fmt.Sprintf("./lltemp/%s.ll", file)
 		llFile, err := os.Create(fileName)
