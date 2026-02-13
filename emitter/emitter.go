@@ -209,7 +209,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 					// TODO: def behaviour for /0, intmin/-1
 					return e.currBlock.NewSDiv(left, right), leftVt
 				case "<":
-					return e.currBlock.NewICmp(enum.IPredSGT, left, right), leftVt
+					return e.currBlock.NewICmp(enum.IPredSLT, left, right), leftVt
 				case ">":
 					return e.currBlock.NewICmp(enum.IPredSGT, left, right), leftVt
 				case "<=":
@@ -543,8 +543,30 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			e.currBlock = endBlock
 			e.loadVariableState(saved)
 		}
+	case *parser.WhileStatement:
+		condBlock := e.currFnc.NewBlock("")
+		whileBlock := e.currFnc.NewBlock("")
+		endBlock := e.currFnc.NewBlock("")
 
-		return nil, lexer.VarType{}
+		// emit branch to cond block
+		e.currBlock.NewBr(condBlock)
+
+		// emit condition block -- shouldnt need context saving since you cant set variables in boolean expr
+		// needs to be checked at compile time
+		e.currBlock = condBlock
+		cond, _ := e.Emit(node.Condition)
+		e.currBlock.NewCondBr(cond, whileBlock, endBlock)
+
+		// emit while block
+		saved := e.saveVariableState()
+		e.currBlock = whileBlock
+		for _, s := range node.Body.Statements {
+			e.Emit(s)
+		}
+		e.currBlock.NewBr(condBlock)
+		e.loadVariableState(saved)
+
+		e.currBlock = endBlock
 	}
 
 	return nil, lexer.VarType{}

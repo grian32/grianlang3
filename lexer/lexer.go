@@ -245,6 +245,8 @@ func identLookup(lit string) (TokenType, BaseVarType) {
 		return IF, None
 	case "else":
 		return ELSE, None
+	case "while":
+		return WHILE, None
 	}
 
 	return IDENTIFIER, None

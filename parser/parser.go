@@ -146,7 +146,7 @@ func (p *Parser) parseGroupedExpression() Expression {
 
 	exp := p.parseExpression(LOWEST)
 
-	if !p.expectPeek(lexer.RPAREN) {
+	if !p.expectCurr(lexer.RPAREN) {
 		return nil
 	}
 
@@ -283,6 +283,7 @@ func (p *Parser) parseAssignExpression(left Expression) Expression {
 	default:
 		p.Errors = append(p.Errors, fmt.Sprintf("got %T on lhs of assignment, expected ident or deref", left))
 	}
+	p.NextToken()
 
 	expr.Right = p.parseExpression(LOWEST)
 
@@ -371,6 +372,7 @@ func (p *Parser) parseCallExpression(left Expression) Expression {
 	} else {
 		return nil
 	}
+	p.NextToken()
 
 	exp.Params = []Expression{}
 
@@ -406,9 +408,26 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseImportStatement()
 	} else if p.currTokenIs(lexer.IF) {
 		return p.parseIfStatement()
+	} else if p.currTokenIs(lexer.WHILE) {
+		return p.parseWhileStatement()
 	}
 
 	return p.parseExpressionStatement()
+}
+
+func (p *Parser) parseWhileStatement() Statement {
+	stmt := &WhileStatement{Token: p.currToken}
+	p.NextToken()
+	cond := p.parseExpression(LOWEST)
+	stmt.Condition = cond
+	if !p.expectCurr(lexer.LBRACE) {
+		return nil
+	}
+	stmt.Body = p.parseBlockStatement()
+	if !p.expectCurr(lexer.RBRACE) {
+		return nil
+	}
+	return stmt
 }
 
 func (p *Parser) parseIfStatement() Statement {
@@ -636,7 +655,9 @@ func (p *Parser) parseExpression(precendence byte) Expression {
 			return leftExp
 		}
 
-		p.NextToken()
+		//if p.currTokenIs(lexer.SEMICOLON) {
+		//	p.NextToken()
+		//}
 
 		leftExp = infix(leftExp)
 	}

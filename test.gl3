@@ -1,16 +1,10 @@
 import "dbg"
 
 fnc main() -> int32 {
-    def bool x = true;
-    if !x {
-        dbg_str("true");
-    } else {
-        def bool y = true;
-        if y {
-            dbg_str("inner true");
-        }
-        dbg_str("false");
+    def int i = 0;
+    while i < 7 {
+        dbg_i64(i);
+        i = i + 1;
     }
-    dbg_str("execs anyway");
     return 0i32;
 }
