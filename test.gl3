@@ -1,10 +1,20 @@
 import "dbg"
 
+struct Hello {
+    int32 x
+    bool y
+}
+
 fnc main() -> int32 {
-    def int i = 0;
-    while i < 7 {
-        dbg_i64(i);
-        i = i + 1;
-    }
+    def Hello i = Hello{ 4i32, true };
+    dbg_str("unmodified values");
+    dbg_i32(i.x);
+    dbg_bool(i.y);
+    dbg_str("modified values");
+    i.x = 7i32;
+    i.y = false;
+    dbg_i32(i.x);
+    dbg_bool(i.y);
+
     return 0i32;
 }

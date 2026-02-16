@@ -36,6 +36,10 @@ type Emitter struct {
 
 	asmModuleImported bool
 	astFuncs          map[string]struct{}
+
+	structTypes         map[string]*types.StructType
+	structMemberIndexes map[string]map[string]int
+	structMemberTypes   map[string][]lexer.VarType
 }
 
 // VariableState used simply for transport when restoring state across if stmt blocks
@@ -59,6 +63,9 @@ func New() *Emitter {
 	e.astFuncs = map[string]struct{}{
 		"__asm__salloc": {},
 	}
+	e.structTypes = make(map[string]*types.StructType)
+	e.structMemberIndexes = make(map[string]map[string]int)
+	e.structMemberTypes = make(map[string][]lexer.VarType)
 
 	//fnc = e.m.NewFunc("malloc", types.I32Ptr, ir.NewParam("val", types.I64Ptr))
 	//e.functions["malloc"] = fnc
@@ -139,17 +146,46 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		go has uint128
 		*/
 		if _, ok := glTypeSInts[node.Type.Base]; ok {
-			return constant.NewInt(varTypeToLlvm(node.Type).(*types.IntType), node.Value), node.Type
+			return constant.NewInt(e.varTypeToLlvm(node.Type).(*types.IntType), node.Value), node.Type
 		} else if _, ok := glTypeUInts[node.Type.Base]; ok {
-			return constant.NewInt(varTypeToLlvm(node.Type).(*types.IntType), int64(node.UValue)), node.Type
+			return constant.NewInt(e.varTypeToLlvm(node.Type).(*types.IntType), int64(node.UValue)), node.Type
 		}
 	case *parser.BooleanExpression:
 		return constant.NewInt(types.I1, boolToI1(node.Value)), lexer.VarType{Base: lexer.Bool, Pointer: 0}
 	case *parser.FloatLiteral:
 		return constant.NewFloat(types.Float, float64(node.Value)), lexer.VarType{Base: lexer.Float, Pointer: 0}
 	case *parser.InfixExpression:
-		// TODO: clean this pile of shit up
 		left, leftVt := e.Emit(node.Left)
+		if node.Operator == "." {
+			// TODO: gep if ptr lhs
+			if !leftVt.IsStructType {
+				log.Fatalf("compiler error: non struct type %v on lhs of dot operator\n", leftVt)
+			}
+			var fieldName string
+			if ident, ok := node.Right.(*parser.IdentifierExpression); ok {
+				fieldName = ident.Value
+			} else {
+				log.Fatalf("compiler error: non identifier %T on rhs of dot operator\n", node.Right)
+			}
+
+			structType, ok := e.structTypes[leftVt.StructName]
+			if !ok {
+				log.Fatalf("compiler error: couldn't find struct type %s in field access\n", leftVt.StructName)
+			}
+			fieldIndexes, _ := e.structMemberIndexes[leftVt.StructName]
+			fieldIndex, ok := fieldIndexes[fieldName]
+			if !ok {
+				log.Fatalf("compiler error: couldn't find field %s on struct of type %s\n", fieldName, leftVt.StructName)
+			}
+			fieldType := e.structMemberTypes[leftVt.StructName][fieldIndex]
+			if leftVt.Pointer > 0 {
+				zero := constant.NewInt(types.I32, 0)
+				fieldIdxConst := constant.NewInt(types.I32, int64(fieldIndex))
+				return e.currBlock.NewGetElementPtr(structType, left, zero, fieldIdxConst), fieldType
+			} else {
+				return e.currBlock.NewExtractValue(left, uint64(fieldIndex)), fieldType
+			}
+		}
 		right, rightVt := e.Emit(node.Right)
 
 		leftType := left.Type()
@@ -276,7 +312,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			}
 		}
 	case *parser.DefStatement:
-		lt := varTypeToLlvm(node.Type)
+		lt := e.varTypeToLlvm(node.Type)
 		right, vt := e.Emit(node.Right)
 
 		vPtr := e.currBlock.NewAlloca(lt)
@@ -299,6 +335,31 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			right, vt := e.Emit(node.Right)
 			e.currBlock.NewStore(right, ptr)
 			return right, vt
+		} else if infix, ok := node.Left.(*parser.InfixExpression); ok && infix.Operator == "." {
+			var name string
+			if ident, ok := infix.Left.(*parser.IdentifierExpression); ok {
+				name = ident.Value
+			} else {
+				log.Fatalf("compiler error: expected identifier on lhs of dot operator\n")
+			}
+			left, leftVt := e.Emit(infix.Left)
+			right, _ := e.Emit(node.Right)
+			_, ok := e.structTypes[leftVt.StructName]
+			if !ok {
+				log.Fatalf("compiler error: could not find struct with type %s\n", leftVt.StructName)
+			}
+			var fieldName string
+			if ident, ok := infix.Right.(*parser.IdentifierExpression); ok {
+				fieldName = ident.Value
+			}
+			fieldIdx := e.structMemberIndexes[leftVt.StructName][fieldName]
+			insert := e.currBlock.NewInsertValue(left, right, uint64(fieldIdx))
+			vPtr, ok := e.variables[name]
+			if !ok {
+				log.Fatalf("compiler error: could not find variable with name %s\n", name)
+			}
+			e.currBlock.NewStore(insert, vPtr)
+			return insert, leftVt
 		}
 	case *parser.IdentifierExpression:
 		if param, ok := e.parameters[node.Value]; ok {
@@ -332,13 +393,13 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 
 		return e.currBlock.NewCall(fncPtr, args...), e.functionGlReturnTypes[node.Function.Value]
 	case *parser.FunctionStatement:
-		retType := varTypeToLlvm(node.Type)
+		retType := e.varTypeToLlvm(node.Type)
 		var paramTypes []*ir.Param
 
 		for _, p := range node.Params {
 			irParam := ir.NewParam(
 				p.Name.Value,
-				varTypeToLlvm(p.Type),
+				e.varTypeToLlvm(p.Type),
 			)
 			e.parameters[p.Name.Value] = irParam
 			e.parametersGlTypes[p.Name.Value] = p.Type
@@ -380,7 +441,9 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		if !ok {
 			fmt.Printf("compile error: couldn't find variable with name %s in reference expr", node.Var.Value)
 		}
-		return vPtr, e.varGlTypes[node.Var.Value]
+		t := e.varGlTypes[node.Var.Value]
+		t.Pointer++
+		return vPtr, t
 	case *parser.DereferenceExpression:
 		ptr, vt := e.Emit(node.Var)
 
@@ -393,7 +456,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 	case *parser.CastExpression:
 		src, lt := e.Emit(node.Expr)
 		srcType := src.Type()
-		dstType := varTypeToLlvm(node.Type)
+		dstType := e.varTypeToLlvm(node.Type)
 
 		// TODO: could be faster if bare bool comparison? prob
 		_, leftIntOk := llvmIntTypes[srcType]
@@ -428,7 +491,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 				// non 64 bit which is llvm default on most (i.e 64bit) systems
 				fmt.Printf("compile warning: pointer to int cast may truncate")
 			}
-			return e.currBlock.NewPtrToInt(src, varTypeToLlvm(node.Type)), node.Type
+			return e.currBlock.NewPtrToInt(src, e.varTypeToLlvm(node.Type)), node.Type
 		} else if leftIntOk && rightFloatOk {
 			return e.currBlock.NewSIToFP(src, dstType), node.Type
 		} else if leftFloatOk && rightIntOk {
@@ -458,8 +521,8 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		sizeInt := constant.NewInt(types.I64, getSizeForVarType(node.Type))
 		newCall := e.currBlock.NewCall(newFnc, sizeInt)
 		node.Type.Pointer++
-		newCallCasted := e.currBlock.NewBitCast(newCall, varTypeToLlvm(node.Type))
-		ptr := e.currBlock.NewAlloca(varTypeToLlvm(node.Type))
+		newCallCasted := e.currBlock.NewBitCast(newCall, e.varTypeToLlvm(node.Type))
+		ptr := e.currBlock.NewAlloca(e.varTypeToLlvm(node.Type))
 		e.currBlock.NewStore(newCallCasted, ptr)
 		for _, elem := range node.Items {
 			v, _ := e.Emit(elem)
@@ -479,9 +542,9 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			for _, d := range declares {
 				var params []*ir.Param
 				for _, p := range d.ParamTypes {
-					params = append(params, ir.NewParam("", varTypeToLlvm(p)))
+					params = append(params, ir.NewParam("", e.varTypeToLlvm(p)))
 				}
-				fnc := e.m.NewFunc(d.Name, varTypeToLlvm(d.ReturnType), params...)
+				fnc := e.m.NewFunc(d.Name, e.varTypeToLlvm(d.ReturnType), params...)
 				e.functions[d.Name] = fnc
 				e.functionGlReturnTypes[d.Name] = d.ReturnType
 			}
@@ -567,6 +630,36 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		e.loadVariableState(saved)
 
 		e.currBlock = endBlock
+	case *parser.StructStatement:
+		typ := &types.StructType{
+			TypeName: node.Name,
+		}
+		for _, t := range node.Types {
+			typ.Fields = append(typ.Fields, e.varTypeToLlvm(t))
+		}
+		e.structTypes[node.Name] = typ
+		e.structMemberIndexes[node.Name] = node.Names
+		e.structMemberTypes[node.Name] = node.Types
+		e.m.NewTypeDef(node.Name, typ)
+	case *parser.StructInitializationExpression:
+		structType, ok := e.structTypes[node.Name]
+		if !ok {
+			log.Fatalf("compiler error: couldnt find struct with name %s for initialization\n", node.Name)
+		}
+		var fields []constant.Constant
+		for _, expr := range node.Values {
+			out, _ := e.Emit(expr)
+			if cnst, ok := out.(constant.Constant); ok {
+				fields = append(fields, cnst)
+			} else {
+				log.Fatalf("compiler error: non constant field in struct initialization\n")
+			}
+		}
+		// lol initializing the vartype directly here is far easier (and probably more efficient) than storing it somewhere
+		return constant.NewStruct(structType, fields...), lexer.VarType{
+			IsStructType: true,
+			StructName:   node.Name,
+		}
 	}
 
 	return nil, lexer.VarType{}
@@ -616,10 +709,10 @@ func (e *Emitter) emitAsmIntrinsic(fnc string, args []parser.Expression) (value.
 			arrSize = uint64(size.Value)
 		}
 		vt := sizeof.Type
-		lt := types.NewArray(arrSize, varTypeToLlvm(vt))
+		lt := types.NewArray(arrSize, e.varTypeToLlvm(vt))
 		ptr := e.currBlock.NewAlloca(lt)
 		vt.Pointer++
-		return e.currBlock.NewBitCast(ptr, varTypeToLlvm(vt)), vt // or gep into elem 0? this seems more suitable..
+		return e.currBlock.NewBitCast(ptr, e.varTypeToLlvm(vt)), vt // or gep into elem 0? this seems more suitable..
 	default:
 		log.Fatalf("compiler error: unknown asm intrinsic function: %s, %v\n", fnc, args)
 		return nil, lexer.VarType{}
@@ -654,25 +747,29 @@ func (e *Emitter) loadVariableState(state *VariableState) {
 	e.varGlTypes = state.varGlTypes
 }
 
-func varTypeToLlvm(vt lexer.VarType) types.Type {
+func (e *Emitter) varTypeToLlvm(vt lexer.VarType) types.Type {
 	var baseType types.Type
-	switch vt.Base {
-	case lexer.None:
-		baseType = nil
-	case lexer.Int, lexer.Uint:
-		baseType = types.I64
-	case lexer.Int32, lexer.Uint32:
-		baseType = types.I32
-	case lexer.Int8, lexer.Uint8, lexer.Char:
-		baseType = types.I8
-	case lexer.Int16, lexer.Uint16:
-		baseType = types.I16
-	case lexer.Void:
-		baseType = types.Void
-	case lexer.Bool:
-		baseType = types.I1
-	case lexer.Float:
-		baseType = types.Float
+	if vt.IsStructType {
+		baseType = e.structTypes[vt.StructName]
+	} else {
+		switch vt.Base {
+		case lexer.None:
+			baseType = nil
+		case lexer.Int, lexer.Uint:
+			baseType = types.I64
+		case lexer.Int32, lexer.Uint32:
+			baseType = types.I32
+		case lexer.Int8, lexer.Uint8, lexer.Char:
+			baseType = types.I8
+		case lexer.Int16, lexer.Uint16:
+			baseType = types.I16
+		case lexer.Void:
+			baseType = types.Void
+		case lexer.Bool:
+			baseType = types.I1
+		case lexer.Float:
+			baseType = types.Float
+		}
 	}
 
 	if baseType != nil {

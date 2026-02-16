@@ -49,20 +49,25 @@ var singleCharToken = map[byte]TokenType{
 	'[': LBRACKET,
 	']': RBRACKET,
 	',': COMMA,
+	'.': DOT,
 }
 
 func (l *Lexer) NextToken() Token {
 	var tok Token
 
-	for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
-		l.readChar()
-	}
-
-	if l.ch == '/' && l.peekChar() == '/' {
-		for l.ch != '\n' {
+	for {
+		for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
 			l.readChar()
 		}
-		l.readChar()
+
+		if l.ch == '/' && l.peekChar() == '/' {
+			for l.ch != '\n' {
+				l.readChar()
+			}
+			continue
+		}
+
+		break
 	}
 
 	sct, ok := singleCharToken[l.ch]
@@ -247,6 +252,8 @@ func identLookup(lit string) (TokenType, BaseVarType) {
 		return ELSE, None
 	case "while":
 		return WHILE, None
+	case "struct":
+		return STRUCT, None
 	}
 
 	return IDENTIFIER, None

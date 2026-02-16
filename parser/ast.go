@@ -353,3 +353,51 @@ func (ws *WhileStatement) String() string {
 
 	return out.String()
 }
+
+type StructStatement struct {
+	Token lexer.Token
+	Name  string
+	// this is done intentionally as in llvm terms theyre just indexes, so first component just maps to
+	// 0, so map[compname]idx, types[idx]
+	Types []lexer.VarType
+	Names map[string]int
+}
+
+func (ss *StructStatement) statementNode()       { /* noop */ }
+func (ss *StructStatement) TokenLiteral() string { return ss.Token.Literal }
+func (ss *StructStatement) String() string {
+	var out bytes.Buffer
+	out.WriteString("struct ")
+	out.WriteString(ss.Name)
+	out.WriteString("{")
+	for name, idx := range ss.Names {
+		out.WriteString(ss.Types[idx].String())
+		out.WriteString(" ")
+		out.WriteString(name)
+		out.WriteString(";")
+	}
+	out.WriteString("}")
+	return out.String()
+}
+
+type StructInitializationExpression struct {
+	Token  lexer.Token
+	Name   string
+	Values []Expression
+}
+
+func (sie *StructInitializationExpression) expressionNode()      { /* noop */ }
+func (sie *StructInitializationExpression) TokenLiteral() string { return sie.Token.Literal }
+func (sie *StructInitializationExpression) String() string {
+	var out bytes.Buffer
+	out.WriteString(sie.Name)
+	out.WriteString("{")
+	for i, e := range sie.Values {
+		out.WriteString(e.String())
+		if i != len(sie.Values)-1 {
+			out.WriteString(",")
+		}
+	}
+	out.WriteString("}")
+	return out.String()
+}

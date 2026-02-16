@@ -47,6 +47,8 @@ const (
 	IF
 	ELSE
 	WHILE
+	STRUCT
+	DOT
 	EOF
 )
 
@@ -126,6 +128,9 @@ func (tt TokenType) String() string {
 type VarType struct {
 	Base    BaseVarType
 	Pointer uint8
+	// if true ignore base, use StructName
+	IsStructType bool
+	StructName   string
 }
 
 type BaseVarType uint8
@@ -181,7 +186,11 @@ func (bvt BaseVarType) String() string {
 
 func (vt VarType) String() string {
 	var bvt strings.Builder
-	bvt.WriteString(vt.Base.String())
+	if vt.IsStructType {
+		bvt.WriteString(vt.StructName)
+	} else {
+		bvt.WriteString(vt.Base.String())
+	}
 
 	for _ = range vt.Pointer {
 		bvt.WriteString("*")

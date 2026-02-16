@@ -28,6 +28,8 @@ var precedences = map[lexer.TokenType]byte{
 	lexer.ASTERISK: PRODUCT,
 	lexer.SLASH:    PRODUCT,
 	lexer.LPAREN:   CALL,
+	lexer.DOT:      CALL, // same semantic as c
+	lexer.LBRACE:   CALL, // same semantic as c
 	lexer.ASSIGN:   ASSIGN,
 	lexer.NOT:      PREFIX,
 	lexer.LOR:      LOR,
@@ -95,10 +97,12 @@ func New(l *lexer.Lexer) *Parser {
 	p.infixParseFns[lexer.LTEQ] = p.parseInfixExpression
 	p.infixParseFns[lexer.GTEQ] = p.parseInfixExpression
 	p.infixParseFns[lexer.NOTEQ] = p.parseInfixExpression
+	p.infixParseFns[lexer.DOT] = p.parseInfixExpression
 	p.infixParseFns[lexer.LPAREN] = p.parseCallExpression
 	p.infixParseFns[lexer.ASSIGN] = p.parseAssignExpression
 	p.infixParseFns[lexer.AS] = p.parseCastExpression
 	p.infixParseFns[lexer.LBRACKET] = p.parseArrayIndexExpression
+	p.infixParseFns[lexer.LBRACE] = p.parseStructInitialization
 
 	return p
 }
@@ -203,11 +207,19 @@ func (p *Parser) parseStringLiteral() Expression {
 
 func (p *Parser) parseSizeofExpression() Expression {
 	expr := &SizeofExpression{Token: p.currToken}
-	if !p.expectPeek(lexer.TYPE) {
+	var vt lexer.VarType
+	if p.peekTokenIs(lexer.TYPE) {
+		p.NextToken()
+		vt = p.currToken.VarType
+	} else if p.peekTokenIs(lexer.IDENTIFIER) {
+		p.NextToken()
+		vt = lexer.VarType{
+			IsStructType: true,
+			StructName:   p.currToken.Literal,
+		}
+	} else {
 		return nil
 	}
-
-	vt := p.currToken.VarType
 	p.getPointers(&vt)
 
 	expr.Type = vt
@@ -241,15 +253,52 @@ func (p *Parser) parseCastExpression(left Expression) Expression {
 	expr := &CastExpression{Token: p.currToken}
 	expr.Expr = left
 
-	if !p.expectPeek(lexer.TYPE) {
+	var castType lexer.VarType
+	if p.peekTokenIs(lexer.TYPE) {
+		p.NextToken()
+		castType = p.currToken.VarType
+	} else if p.peekTokenIs(lexer.IDENTIFIER) {
+		p.NextToken()
+		castType = lexer.VarType{
+			IsStructType: true,
+			StructName:   p.currToken.Literal,
+		}
+	} else {
 		return nil
-	}
 
-	castType := p.currToken.VarType
+	}
 	p.getPointers(&castType)
 	expr.Type = castType
 
 	return expr
+}
+
+func (p *Parser) parseStructInitialization(left Expression) Expression {
+	exp := &StructInitializationExpression{}
+	if ident, ok := left.(*IdentifierExpression); ok {
+		exp.Name = ident.Value
+	} else {
+		p.Errors = append(p.Errors, "expected identifier on lhs of struct init")
+		return nil
+	}
+	p.NextToken()
+
+	for !p.currTokenIs(lexer.RBRACE) {
+		expr := p.parseExpression(LOWEST)
+		exp.Values = append(exp.Values, expr)
+		if p.currTokenIs(lexer.RBRACE) {
+			p.NextToken()
+			break
+		} else if p.currTokenIs(lexer.COMMA) {
+			p.NextToken()
+			continue
+		} else {
+			return nil
+		}
+	}
+	p.NextToken()
+
+	return exp
 }
 
 func (p *Parser) parseBoolean() Expression {
@@ -260,6 +309,7 @@ func (p *Parser) parseBoolean() Expression {
 	} else {
 		expr.Value = false
 	}
+	p.NextToken()
 
 	return expr
 }
@@ -271,7 +321,6 @@ func (p *Parser) parseReference() Expression {
 	if ident, ok := rhs.(*IdentifierExpression); ok {
 		expr.Var = ident
 	}
-	p.NextToken()
 	return expr
 }
 
@@ -281,7 +330,11 @@ func (p *Parser) parseAssignExpression(left Expression) Expression {
 	case *IdentifierExpression, *DereferenceExpression:
 		expr.Left = left
 	default:
-		p.Errors = append(p.Errors, fmt.Sprintf("got %T on lhs of assignment, expected ident or deref", left))
+		if infix, ok := left.(*InfixExpression); ok && infix.Operator == "." {
+			expr.Left = left
+		} else {
+			p.Errors = append(p.Errors, fmt.Sprintf("got %T on lhs of assignment, expected ident or deref", left))
+		}
 	}
 	p.NextToken()
 
@@ -392,27 +445,83 @@ func (p *Parser) parseCallExpression(left Expression) Expression {
 			return nil
 		}
 	}
-	p.NextToken()
 
 	return exp
 }
 
 func (p *Parser) parseStatement() Statement {
-	if p.currTokenIs(lexer.DEF) {
+	//if p.currTokenIs(lexer.DEF) {
+	//	return p.parseVarStatement()
+	//} else if p.currTokenIs(lexer.RETURN) {
+	//	return p.parseReturnStatement()
+	//} else if p.currTokenIs(lexer.FNC) {
+	//	return p.parseFunctionStatement()
+	//} else if p.currTokenIs(lexer.IMPORT) {
+	//	return p.parseImportStatement()
+	//} else if p.currTokenIs(lexer.IF) {
+	//	return p.parseIfStatement()
+	//} else if p.currTokenIs(lexer.WHILE) {
+	//	return p.parseWhileStatement()
+	//}
+	switch p.currToken.Type {
+	case lexer.DEF:
 		return p.parseVarStatement()
-	} else if p.currTokenIs(lexer.RETURN) {
+	case lexer.RETURN:
 		return p.parseReturnStatement()
-	} else if p.currTokenIs(lexer.FNC) {
+	case lexer.FNC:
 		return p.parseFunctionStatement()
-	} else if p.currTokenIs(lexer.IMPORT) {
+	case lexer.IMPORT:
 		return p.parseImportStatement()
-	} else if p.currTokenIs(lexer.IF) {
+	case lexer.IF:
 		return p.parseIfStatement()
-	} else if p.currTokenIs(lexer.WHILE) {
+	case lexer.WHILE:
 		return p.parseWhileStatement()
+	case lexer.STRUCT:
+		return p.parseStructStatement()
 	}
 
 	return p.parseExpressionStatement()
+}
+
+func (p *Parser) parseStructStatement() Statement {
+	stmt := &StructStatement{Token: p.currToken}
+	p.NextToken()
+	if !p.currTokenIs(lexer.IDENTIFIER) {
+		p.Errors = append(p.Errors, "expected identifier after struct keyword")
+		return nil
+	}
+	stmt.Name = p.currToken.Literal
+	p.NextToken()
+	if !p.expectCurr(lexer.LBRACE) {
+		return nil
+	}
+	stmt.Names = make(map[string]int)
+	for !p.currTokenIs(lexer.RBRACE) {
+		var vt lexer.VarType
+
+		if p.currTokenIs(lexer.TYPE) {
+			vt = p.currToken.VarType
+			p.NextToken()
+		} else if p.currTokenIs(lexer.IDENTIFIER) {
+			vt = lexer.VarType{
+				IsStructType: true,
+				StructName:   p.currToken.Literal,
+			}
+			p.NextToken()
+		} else {
+			p.Errors = append(p.Errors, "expected type in struct definition")
+			return nil
+		}
+
+		if !p.currTokenIs(lexer.IDENTIFIER) {
+			p.Errors = append(p.Errors, "expected identifier after type in struct definition")
+			return nil
+		}
+		stmt.Types = append(stmt.Types, vt)
+		stmt.Names[p.currToken.Literal] = len(stmt.Types) - 1
+		p.NextToken()
+	}
+	return stmt
 }
 
 func (p *Parser) parseWhileStatement() Statement {
@@ -520,10 +629,19 @@ func (p *Parser) parseFunctionStatement() Statement {
 
 	// for empty arg list if it is rparen then it just stops immediately since we curr are on lparen
 	for !p.peekTokenIs(lexer.RPAREN) {
-		if !p.expectPeek(lexer.TYPE) {
+		var paramType lexer.VarType
+		if p.peekTokenIs(lexer.TYPE) {
+			p.NextToken()
+			paramType = p.currToken.VarType
+		} else if p.peekTokenIs(lexer.IDENTIFIER) {
+			p.NextToken()
+			paramType = lexer.VarType{
+				IsStructType: true,
+				StructName:   p.currToken.Literal,
+			}
+		} else {
 			return nil
 		}
-		paramType := p.currToken.VarType
 		p.getPointers(&paramType)
 		if !p.expectPeek(lexer.IDENTIFIER) {
 			return nil
@@ -559,10 +677,18 @@ func (p *Parser) parseFunctionStatement() Statement {
 	if !p.expectPeek(lexer.ARROW) {
 		return nil
 	}
-	if !p.expectPeek(lexer.TYPE) {
+	if p.peekTokenIs(lexer.TYPE) {
+		p.NextToken()
+		stmt.Type = p.currToken.VarType
+	} else if p.peekTokenIs(lexer.IDENTIFIER) {
+		p.NextToken()
+		stmt.Type = lexer.VarType{
+			IsStructType: true,
+			StructName:   p.currToken.Literal,
+		}
+	} else {
 		return nil
 	}
-	stmt.Type = p.currToken.VarType
 	p.getPointers(&stmt.Type)
 
 	if !p.expectPeek(lexer.LBRACE) {
@@ -579,12 +705,18 @@ func (p *Parser) parseFunctionStatement() Statement {
 
 func (p *Parser) parseVarStatement() *DefStatement {
 	stmt := &DefStatement{Token: p.currToken}
-
-	if !p.expectPeek(lexer.TYPE) {
+	if p.peekTokenIs(lexer.TYPE) {
+		p.NextToken()
+		stmt.Type = p.currToken.VarType
+	} else if p.peekTokenIs(lexer.IDENTIFIER) {
+		p.NextToken()
+		stmt.Type = lexer.VarType{
+			IsStructType: true,
+			StructName:   p.currToken.Literal,
+		}
+	} else {
 		return nil
 	}
-
-	stmt.Type = p.currToken.VarType
 	p.getPointers(&stmt.Type)
 
 	if !p.expectPeek(lexer.IDENTIFIER) {
@@ -613,20 +745,6 @@ func (p *Parser) peekTokenIs(tt lexer.TokenType) bool {
 
 func (p *Parser) currTokenIs(tt lexer.TokenType) bool {
 	return p.currToken.Type == tt
-}
-
-func (p *Parser) parseAssignable() Expression {
-	if p.currTokenIs(lexer.IDENTIFIER) {
-		return &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
-	} else if p.currTokenIs(lexer.ASTERISK) { // deref
-		expr := &DereferenceExpression{Token: p.currToken}
-		p.NextToken()
-		expr.Var = p.parseAssignable()
-		return expr
-	}
-
-	p.Errors = append(p.Errors, fmt.Sprintf("invalid assign target: %s", p.currToken.Type.String()))
-	return nil
 }
 
 func (p *Parser) parseExpressionStatement() Statement {
