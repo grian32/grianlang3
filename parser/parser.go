@@ -253,20 +253,19 @@ func (p *Parser) parseCastExpression(left Expression) Expression {
 	expr := &CastExpression{Token: p.currToken}
 	expr.Expr = left
 
+	p.NextToken() // asvance past AS
 	var castType lexer.VarType
-	if p.peekTokenIs(lexer.TYPE) {
-		p.NextToken()
+	if p.currTokenIs(lexer.TYPE) {
 		castType = p.currToken.VarType
-	} else if p.peekTokenIs(lexer.IDENTIFIER) {
-		p.NextToken()
+	} else if p.currTokenIs(lexer.IDENTIFIER) {
 		castType = lexer.VarType{
 			IsStructType: true,
 			StructName:   p.currToken.Literal,
 		}
 	} else {
 		return nil
-
 	}
+	p.NextToken() // advance past type/ident
 	p.getPointers(&castType)
 	expr.Type = castType
 
@@ -596,11 +595,11 @@ func (p *Parser) parseBlockStatement() *BlockStatement {
 }
 
 func (p *Parser) getPointers(vt *lexer.VarType) {
-	if !p.peekTokenIs(lexer.ASTERISK) {
+	if !p.currTokenIs(lexer.ASTERISK) {
 		return
 	}
 
-	for p.peekTokenIs(lexer.ASTERISK) {
+	for p.currTokenIs(lexer.ASTERISK) {
 		vt.Pointer++
 		p.NextToken()
 	}
