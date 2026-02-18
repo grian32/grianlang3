@@ -439,7 +439,6 @@ func (p *Parser) parseCallExpression(left Expression) Expression {
 		//p.NextToken()
 		exp.Params = append(exp.Params, expr)
 		if p.currTokenIs(lexer.RPAREN) {
-			p.NextToken()
 			break
 		} else if p.currTokenIs(lexer.COMMA) {
 			p.NextToken()
