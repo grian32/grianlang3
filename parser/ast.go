@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"grianlang3/lexer"
+	"strconv"
 )
 
 type Node interface {
@@ -60,14 +61,22 @@ func (es *ExpressionStatement) String() string {
 
 type IntegerLiteral struct {
 	Token  lexer.Token
-	Type   lexer.VarType // options: Int, Int32
-	Value  int64         // stored as i64 internally for all
+	Type   lexer.VarType
+	Value  int64
 	UValue uint64
 }
 
 func (il *IntegerLiteral) expressionNode()      { /* noop */ }
 func (il *IntegerLiteral) TokenLiteral() string { return il.Token.Literal }
-func (il *IntegerLiteral) String() string       { return il.Token.Literal + "(" + il.Type.String() + ")" }
+func (il *IntegerLiteral) String() string {
+	switch il.Type.Base {
+	case lexer.Int8, lexer.Int16, lexer.Int32, lexer.Int:
+		return strconv.Itoa(int(il.Value)) + "(" + il.Type.String() + ")"
+	case lexer.Uint8, lexer.Uint16, lexer.Uint32, lexer.Uint:
+		return strconv.FormatUint(il.UValue, 10) + "(" + il.Type.String() + ")"
+	}
+	return il.Token.Literal + "(" + il.Type.String() + ")"
+}
 
 type InfixExpression struct {
 	Token    lexer.Token
