@@ -607,25 +607,25 @@ func (p *Parser) getPointers(vt *lexer.VarType) {
 
 func (p *Parser) parseFunctionStatement() Statement {
 	stmt := &FunctionStatement{Token: p.currToken}
-
-	if !p.expectPeek(lexer.IDENTIFIER) {
+	p.NextToken()
+	if !p.currTokenIs(lexer.IDENTIFIER) {
+		p.Errors = append(p.Errors, "expected identifier after fnc keyword")
 		return nil
 	}
 	stmt.Name = &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
-	if !p.expectPeek(lexer.LPAREN) {
+	p.NextToken()
+	if !p.expectCurr(lexer.LPAREN) {
 		return nil
 	}
 
 	stmt.Params = []FunctionParameter{}
 
 	// for empty arg list if it is rparen then it just stops immediately since we curr are on lparen
-	for !p.peekTokenIs(lexer.RPAREN) {
+	for !p.currTokenIs(lexer.RPAREN) {
 		var paramType lexer.VarType
-		if p.peekTokenIs(lexer.TYPE) {
-			p.NextToken()
+		if p.currTokenIs(lexer.TYPE) {
 			paramType = p.currToken.VarType
-		} else if p.peekTokenIs(lexer.IDENTIFIER) {
-			p.NextToken()
+		} else if p.currTokenIs(lexer.IDENTIFIER) {
 			paramType = lexer.VarType{
 				IsStructType: true,
 				StructName:   p.currToken.Literal,
@@ -633,8 +633,10 @@ func (p *Parser) parseFunctionStatement() Statement {
 		} else {
 			return nil
 		}
+		p.NextToken()
 		p.getPointers(&paramType)
-		if !p.expectPeek(lexer.IDENTIFIER) {
+		if !p.currTokenIs(lexer.IDENTIFIER) {
+			p.Errors = append(p.Errors, "expected identifier after type in function definition")
 			return nil
 		}
 		ident := &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
@@ -649,30 +651,20 @@ func (p *Parser) parseFunctionStatement() Statement {
 		if p.currTokenIs(lexer.RPAREN) {
 			break
 		} else if p.currTokenIs(lexer.COMMA) {
+			p.NextToken()
 			continue
 		} else {
 			return nil
 		}
 	}
+	p.NextToken()
 
-	if len(stmt.Params) == 0 {
-		if !p.expectPeek(lexer.RPAREN) {
-			return nil
-		}
-	} else {
-		if !p.currTokenIs(lexer.RPAREN) {
-			return nil
-		}
-	}
-
-	if !p.expectPeek(lexer.ARROW) {
+	if !p.expectCurr(lexer.ARROW) {
 		return nil
 	}
-	if p.peekTokenIs(lexer.TYPE) {
-		p.NextToken()
+	if p.currTokenIs(lexer.TYPE) {
 		stmt.Type = p.currToken.VarType
 	} else if p.peekTokenIs(lexer.IDENTIFIER) {
-		p.NextToken()
 		stmt.Type = lexer.VarType{
 			IsStructType: true,
 			StructName:   p.currToken.Literal,
@@ -680,14 +672,14 @@ func (p *Parser) parseFunctionStatement() Statement {
 	} else {
 		return nil
 	}
+	p.NextToken()
 	p.getPointers(&stmt.Type)
 
-	if !p.expectPeek(lexer.LBRACE) {
+	if !p.expectCurr(lexer.LBRACE) {
 		return nil
 	}
-	p.NextToken()
 	stmt.Body = p.parseBlockStatement()
-	if !p.currTokenIs(lexer.RBRACE) {
+	if !p.expectCurr(lexer.RBRACE) {
 		return nil
 	}
 
@@ -696,11 +688,10 @@ func (p *Parser) parseFunctionStatement() Statement {
 
 func (p *Parser) parseVarStatement() *DefStatement {
 	stmt := &DefStatement{Token: p.currToken}
-	if p.peekTokenIs(lexer.TYPE) {
-		p.NextToken()
+	p.NextToken()
+	if p.currTokenIs(lexer.TYPE) {
 		stmt.Type = p.currToken.VarType
-	} else if p.peekTokenIs(lexer.IDENTIFIER) {
-		p.NextToken()
+	} else if p.currTokenIs(lexer.IDENTIFIER) {
 		stmt.Type = lexer.VarType{
 			IsStructType: true,
 			StructName:   p.currToken.Literal,
@@ -708,25 +699,22 @@ func (p *Parser) parseVarStatement() *DefStatement {
 	} else {
 		return nil
 	}
+	p.NextToken()
 	p.getPointers(&stmt.Type)
 
-	if !p.expectPeek(lexer.IDENTIFIER) {
+	if !p.currTokenIs(lexer.IDENTIFIER) {
+		p.Errors = append(p.Errors, "expected identifier after type in def stmt")
 		return nil
 	}
 
 	stmt.Name = &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
+	p.NextToken()
 
-	if !p.expectPeek(lexer.ASSIGN) {
+	if !p.expectCurr(lexer.ASSIGN) {
 		return nil
 	}
 
-	p.NextToken()
-
 	stmt.Right = p.parseExpression(LOWEST)
-
-	if p.peekTokenIs(lexer.SEMICOLON) {
-		p.NextToken()
-	}
 
 	return stmt
 }
