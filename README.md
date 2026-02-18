@@ -64,5 +64,5 @@ fnc main() -> int32 {
 
 ## Documentation
 
-- [SYNTAX.ai.md](SYNTAX.md) - Complete language syntax reference
-- [STDLIB.ai.md](STDLIB.md) - Standard library documentation
+- [SYNTAX.md](SYNTAX.md) - Complete language syntax reference
+- [STDLIB.md](STDLIB.md) - Standard library documentation
