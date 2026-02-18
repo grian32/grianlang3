@@ -167,11 +167,11 @@ func TestIfStatement(t *testing.T) {
 		},
 		"expr cond": {
 			"if x > 5i32 { \n \n }",
-			"if x > 5(Int32) {  };",
+			"if (x > 5(Int32)) {  };",
 		},
 		"expr cond with body": {
 			"if x == 7u32 { \n stuff()\n }",
-			"if x == 7(Uint32) { stuff(); };",
+			"if (x == 7(Uint32)) { stuff(); };",
 		},
 		"with else empty": {
 			"if true { \n \n } else { \n \n }",
@@ -179,7 +179,7 @@ func TestIfStatement(t *testing.T) {
 		},
 		"with else body": {
 			"if x < 1 { \n return 0 \n } else { \n return 1 \n }",
-			"if x < 1(Int) { return 0(Int) } else { return 1(Int) };",
+			"if (x < 1(Int)) { return 0(Int) } else { return 1(Int) };",
 		},
 		"nested if": {
 			"if true { \n if false { \n \n } \n }",
@@ -206,7 +206,7 @@ func TestWhileStatement(t *testing.T) {
 		},
 		"expr cond": {
 			"while x > 5i32 { \n \n }",
-			"while x > 5(Int32) {  };",
+			"while (x > 5(Int32)) {  };",
 		},
 		"expr cond with body": {
 			"while x == 7u32 { \n stuff()\n }",
@@ -442,16 +442,16 @@ func TestSizeofExpression(t *testing.T) {
 func TestStructInitializationExpression(t *testing.T) {
 	tests := map[string]InputOutput{
 		"basic init": {
-			"Player{1i32, true}",
-			"Player{1(Int32),true};",
+			"Player:{1i32, true}",
+			"Player:{1(Int32),true};",
 		},
 		"single elem init": {
-			"Cooked{1i32}",
-			"Cooked{1(Int32)};",
+			"Cooked:{1i32}",
+			"Cooked:{1(Int32)};",
 		},
 		"empty init": {
-			"Empty{}",
-			"Empty{};",
+			"Empty:{}",
+			"Empty:{};",
 		},
 	}
 

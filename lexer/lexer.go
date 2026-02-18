@@ -50,6 +50,7 @@ var singleCharToken = map[byte]TokenType{
 	']': RBRACKET,
 	',': COMMA,
 	'.': DOT,
+	':': COLON,
 }
 
 func (l *Lexer) NextToken() Token {

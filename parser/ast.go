@@ -400,7 +400,7 @@ func (sie *StructInitializationExpression) TokenLiteral() string { return sie.To
 func (sie *StructInitializationExpression) String() string {
 	var out bytes.Buffer
 	out.WriteString(sie.Name)
-	out.WriteString("{")
+	out.WriteString(":{")
 	for i, e := range sie.Values {
 		out.WriteString(e.String())
 		if i != len(sie.Values)-1 {

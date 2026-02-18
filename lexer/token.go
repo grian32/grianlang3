@@ -49,6 +49,7 @@ const (
 	WHILE
 	STRUCT
 	DOT
+	COLON
 	EOF
 )
 

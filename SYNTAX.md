@@ -153,8 +153,10 @@ def char* message = "hello"
 Struct instances:
 
 ```gl3
-def Point p = Point{ 10i32, 20i32 }
+def Point p = Point:{ 10i32, 20i32 }
 ```
+
+> **Note**: The `:` part of the struct initialization statement is largely redundant from an abstract point of view but the lack of it leads to parsing ambiguity with syntax along the lines of `if x { }`.
 
 Pointers:
 

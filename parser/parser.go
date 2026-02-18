@@ -29,7 +29,7 @@ var precedences = map[lexer.TokenType]byte{
 	lexer.SLASH:    PRODUCT,
 	lexer.LPAREN:   CALL,
 	lexer.DOT:      CALL, // same semantic as c
-	lexer.LBRACE:   CALL, // same semantic as c
+	lexer.COLON:    CALL, // same semantic as c
 	lexer.ASSIGN:   ASSIGN,
 	lexer.NOT:      PREFIX,
 	lexer.LOR:      LOR,
@@ -102,7 +102,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.infixParseFns[lexer.ASSIGN] = p.parseAssignExpression
 	p.infixParseFns[lexer.AS] = p.parseCastExpression
 	p.infixParseFns[lexer.LBRACKET] = p.parseArrayIndexExpression
-	p.infixParseFns[lexer.LBRACE] = p.parseStructInitialization
+	p.infixParseFns[lexer.COLON] = p.parseStructInitialization
 
 	return p
 }
@@ -274,14 +274,17 @@ func (p *Parser) parseCastExpression(left Expression) Expression {
 }
 
 func (p *Parser) parseStructInitialization(left Expression) Expression {
-	exp := &StructInitializationExpression{}
+	exp := &StructInitializationExpression{Token: p.currToken}
 	if ident, ok := left.(*IdentifierExpression); ok {
 		exp.Name = ident.Value
 	} else {
 		p.Errors = append(p.Errors, "expected identifier on lhs of struct init")
 		return nil
 	}
-	p.NextToken()
+	p.NextToken() // skip past :
+	if !p.expectCurr(lexer.LBRACE) {
+		p.NextToken()
+	}
 
 	for !p.currTokenIs(lexer.RBRACE) {
 		expr := p.parseExpression(LOWEST)
@@ -450,19 +453,6 @@ func (p *Parser) parseCallExpression(left Expression) Expression {
 }
 
 func (p *Parser) parseStatement() Statement {
-	//if p.currTokenIs(lexer.DEF) {
-	//	return p.parseVarStatement()
-	//} else if p.currTokenIs(lexer.RETURN) {
-	//	return p.parseReturnStatement()
-	//} else if p.currTokenIs(lexer.FNC) {
-	//	return p.parseFunctionStatement()
-	//} else if p.currTokenIs(lexer.IMPORT) {
-	//	return p.parseImportStatement()
-	//} else if p.currTokenIs(lexer.IF) {
-	//	return p.parseIfStatement()
-	//} else if p.currTokenIs(lexer.WHILE) {
-	//	return p.parseWhileStatement()
-	//}
 	switch p.currToken.Type {
 	case lexer.DEF:
 		return p.parseVarStatement()
