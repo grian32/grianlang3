@@ -352,6 +352,7 @@ func (p *Parser) parseDereference() Expression {
 	p.NextToken()
 	if p.currTokenIs(lexer.IDENTIFIER) {
 		expr.Var = &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
+		p.NextToken()
 	} else {
 		expr.Var = p.parseExpression(PREFIX)
 	}
@@ -363,6 +364,7 @@ func (p *Parser) parseDereference() Expression {
 // to keep the same semantics
 func (p *Parser) parseArrayIndexExpression(left Expression) Expression {
 	derefToken := p.currToken
+	p.NextToken() // skip past [
 	index := p.parseExpression(LOWEST)
 	if !p.currTokenIs(lexer.RBRACKET) {
 		return nil
