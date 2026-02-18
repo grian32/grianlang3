@@ -448,6 +448,7 @@ func (p *Parser) parseCallExpression(left Expression) Expression {
 			return nil
 		}
 	}
+	p.NextToken()
 
 	return exp
 }
