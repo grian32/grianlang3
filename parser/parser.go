@@ -502,6 +502,7 @@ func (p *Parser) parseStructStatement() Statement {
 			p.Errors = append(p.Errors, "expected type in struct definition")
 			return nil
 		}
+		p.getPointers(&vt)
 
 		if !p.currTokenIs(lexer.IDENTIFIER) {
 			p.Errors = append(p.Errors, "expected identifier after type in struct definition")
