@@ -392,7 +392,6 @@ func (p *Parser) parseArrayLiteral() Expression {
 
 	for !p.currTokenIs(lexer.RBRACKET) {
 		expr := p.parseExpression(LOWEST)
-		p.NextToken()
 		lit.Items = append(lit.Items, expr)
 		if p.currTokenIs(lexer.RBRACKET) {
 			break
