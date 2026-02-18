@@ -208,11 +208,10 @@ func (p *Parser) parseStringLiteral() Expression {
 func (p *Parser) parseSizeofExpression() Expression {
 	expr := &SizeofExpression{Token: p.currToken}
 	var vt lexer.VarType
-	if p.peekTokenIs(lexer.TYPE) {
-		p.NextToken()
+	p.NextToken() // past sizeof
+	if p.currTokenIs(lexer.TYPE) {
 		vt = p.currToken.VarType
-	} else if p.peekTokenIs(lexer.IDENTIFIER) {
-		p.NextToken()
+	} else if p.currTokenIs(lexer.IDENTIFIER) {
 		vt = lexer.VarType{
 			IsStructType: true,
 			StructName:   p.currToken.Literal,
@@ -220,6 +219,7 @@ func (p *Parser) parseSizeofExpression() Expression {
 	} else {
 		return nil
 	}
+	p.NextToken() // past type/ident
 	p.getPointers(&vt)
 
 	expr.Type = vt

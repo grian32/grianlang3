@@ -6,7 +6,7 @@ struct Hello {
 }
 
 fnc main() -> int32 {
-    def Hello i = Hello{ 4i32, true };
+    def Hello i = Hello:{ 4i32, true };
     dbg_str("unmodified values");
     dbg_i32(i.x);
     dbg_bool(i.y);
