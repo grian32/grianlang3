@@ -128,6 +128,7 @@ func (l *Lexer) NextToken() Token {
 				tok.Literal = ""
 			} else {
 				tok.Literal = string(l.ch)
+				l.readChar() // skip next '
 			}
 		}
 	}
