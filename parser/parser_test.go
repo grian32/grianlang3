@@ -171,7 +171,7 @@ func TestIfStatement(t *testing.T) {
 		},
 		"expr cond with body": {
 			"if x == 7u32 { \n stuff()\n }",
-			"if (x == 7(Uint32)) { stuff(); };",
+			"if (x == 7(Uint32)) { stuff() };",
 		},
 		"with else empty": {
 			"if true { \n \n } else { \n \n }",
@@ -210,7 +210,7 @@ func TestWhileStatement(t *testing.T) {
 		},
 		"expr cond with body": {
 			"while x == 7u32 { \n stuff()\n }",
-			"while x == 7(Uint32) { stuff(); };",
+			"while (x == 7(Uint32)) { stuff() };",
 		},
 		"nested while": {
 			"while true { \n while false { \n \n } \n }",
