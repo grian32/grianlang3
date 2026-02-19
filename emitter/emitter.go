@@ -422,7 +422,11 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		}
 
 		if !foundRet {
-			e.currBlock.NewRet(nil)
+			if node.Type.Base == lexer.None && !node.Type.IsStructType && node.Type.Pointer == 0 {
+				e.currBlock.NewRet(nil)
+			} else {
+				log.Fatalf("compiler error: missing return statement in non-void function\n")
+			}
 		}
 
 		e.parameters = make(map[string]*ir.Param)
