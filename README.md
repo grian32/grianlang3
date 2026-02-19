@@ -49,8 +49,8 @@ fnc distance(Point* p) -> int32 {
 }
 
 fnc main() -> int32 {
-    def Point origin = Point{ 0i32, 0i32 }
-    def Point p = Point{ 3i32, 4i32 }
+    def Point origin = Point:{ 0i32, 0i32 }
+    def Point p = Point:{ 3i32, 4i32 }
     
     def int32 dist = distance(&p)
     
