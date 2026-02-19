@@ -1,7 +1,6 @@
 package emitter
 
 import (
-	"fmt"
 	"grianlang3/lexer"
 	"grianlang3/parser"
 	"log"
@@ -291,7 +290,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			}
 		}
 
-		fmt.Printf("compile error: operator %s invalid for types %T(%s), %T(%s)", node.Operator, node.Left, node.Left.String(), node.Right, node.Right.String())
+		log.Fatalf("compile error: operator %s invalid for types %T(%s), %T(%s)", node.Operator, node.Left, node.Left.String(), node.Right, node.Right.String())
 	case *parser.PrefixExpression:
 		switch node.Operator {
 		case "!":
@@ -325,7 +324,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		if ident, ok := node.Left.(*parser.IdentifierExpression); ok {
 			vPtr, ok := e.variables[ident.Value]
 			if !ok {
-				fmt.Printf("compile error: couldn't find variable of name %s used in var assignment", ident.Value)
+				log.Fatalf("compile error: couldn't find variable of name %s used in var assignment", ident.Value)
 			}
 			right, vt := e.Emit(node.Right)
 			e.currBlock.NewStore(right, vPtr)
@@ -368,11 +367,11 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 
 		vPtr, ok := e.variables[node.Value]
 		if !ok {
-			fmt.Printf("compile error: couldn't find variable of name %s used in var ref", node.Value)
+			log.Fatalf("compile error: couldn't find variable of name %s used in var ref", node.Value)
 		}
 		vType, ok := e.varTypes[node.Value]
 		if !ok {
-			fmt.Printf("compile error: couldn't find variable type of name %s used in var ref", node.Value)
+			log.Fatalf("compile error: couldn't find variable type of name %s used in var ref", node.Value)
 		}
 		return e.currBlock.NewLoad(vType, vPtr), e.varGlTypes[node.Value]
 	case *parser.CallExpression:
@@ -388,7 +387,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 
 		fncPtr, ok := e.functions[node.Function.Value]
 		if !ok {
-			fmt.Printf("compile error: couldn't find function with name %s", node.Function.Value)
+			log.Fatalf("compile error: couldn't find function with name %s", node.Function.Value)
 		}
 
 		return e.currBlock.NewCall(fncPtr, args...), e.functionGlReturnTypes[node.Function.Value]
@@ -439,7 +438,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 	case *parser.ReferenceExpression:
 		vPtr, ok := e.variables[node.Var.Value]
 		if !ok {
-			fmt.Printf("compile error: couldn't find variable with name %s in reference expr", node.Var.Value)
+			log.Fatalf("compile error: couldn't find variable with name %s in reference expr", node.Var.Value)
 		}
 		t := e.varGlTypes[node.Var.Value]
 		t.Pointer++
@@ -449,7 +448,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 
 		ptrTy, ok := ptr.Type().(*types.PointerType)
 		if !ok {
-			fmt.Printf("compile error: cannot deref non-ptr type %v\n", ptrTy)
+			log.Fatalf("compile error: cannot deref non-ptr type %v\n", ptrTy)
 		}
 
 		return e.currBlock.NewLoad(ptrTy.ElemType, ptr), vt
@@ -489,7 +488,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		} else if _, ok := src.Type().(*types.PointerType); ok && rightIntOk && node.Type.Pointer == 0 {
 			if node.Type.Base != lexer.Int {
 				// non 64 bit which is llvm default on most (i.e 64bit) systems
-				fmt.Printf("compile warning: pointer to int cast may truncate")
+				log.Fatalf("compile warning: pointer to int cast may truncate")
 			}
 			return e.currBlock.NewPtrToInt(src, e.varTypeToLlvm(node.Type)), node.Type
 		} else if leftIntOk && rightFloatOk {
@@ -511,11 +510,11 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 	case *parser.ArrayLiteral:
 		newFnc, ok := e.functions["arr_new"]
 		if !ok {
-			fmt.Printf("compiler error: cannot find arr_new while emitting array literal\n")
+			log.Fatalf("compiler error: cannot find arr_new while emitting array literal\n")
 		}
 		push, ok := e.functions["arr_push"]
 		if !ok {
-			fmt.Printf("compiler error: cannot find arr_push while emitting array literal\n")
+			log.Fatalf("compiler error: cannot find arr_push while emitting array literal\n")
 		}
 
 		sizeInt := constant.NewInt(types.I64, getSizeForVarType(node.Type))
@@ -535,7 +534,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		if strings.HasSuffix(node.Path, ".gl3") {
 			f, err := os.ReadFile(node.Path)
 			if err != nil {
-				fmt.Printf("compiler error: cannot find %s file described in import stmt", f)
+				log.Fatalf("compiler error: cannot find %s file described in import stmt", f)
 				return nil, lexer.VarType{}
 			}
 			declares := findDeclares(string(f))
@@ -553,7 +552,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		} else {
 			err := AddBuiltinModule(e, node.Path)
 			if err != nil {
-				fmt.Printf("compiler error: couldn't import builtin module %s", node.Path)
+				log.Fatalf("compiler error: couldn't import builtin module %s", node.Path)
 			}
 		}
 	case *parser.StringLiteral:
@@ -674,7 +673,7 @@ func (e *Emitter) emitAddress(node parser.Node) (value.Value, lexer.VarType) {
 		}
 		vPtr, ok := e.variables[node.Value]
 		if !ok {
-			fmt.Printf("compile error: couldn't find variable with name %s in deref assignment", node.Value)
+			log.Fatalf("compile error: couldn't find variable with name %s in deref assignment", node.Value)
 		}
 		vt := e.varGlTypes[node.Value]
 		vt.Pointer++
@@ -683,7 +682,7 @@ func (e *Emitter) emitAddress(node parser.Node) (value.Value, lexer.VarType) {
 		ptr, t := e.Emit(node.Var)
 		return ptr, t
 	default:
-		fmt.Printf("compile error: invalid node type for emitAddress\n")
+		log.Fatalf("compile error: invalid node type for emitAddress\n")
 		return nil, lexer.VarType{}
 	}
 }
