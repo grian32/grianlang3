@@ -57,6 +57,20 @@ var builtinModules = map[string]map[string]BuiltinDef{
 	},
 }
 
+func GetBuiltinNames() map[string]map[string]struct{} {
+	m := make(map[string]map[string]struct{})
+	for builtinModule, names := range builtinModules {
+		m[builtinModule] = make(map[string]struct{})
+		for n, _ := range names {
+			m[builtinModule][n] = struct{}{}
+		}
+	}
+	m["asm"] = map[string]struct{}{
+		"__asm__salloc": struct{}{},
+	}
+	return m
+}
+
 func AddBuiltinModule(e *Emitter, moduleName string) error {
 	builtins, ok := builtinModules[moduleName]
 	if !ok {
