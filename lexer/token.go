@@ -1,6 +1,9 @@
 package lexer
 
-import "strings"
+import (
+	"grianlang3/util"
+	"strings"
+)
 
 type TokenType uint8
 
@@ -58,17 +61,17 @@ func (tt TokenType) String() string {
 	case INT:
 		return "INT"
 	case PLUS:
-		return "PLUS"
+		return "+"
 	case SLASH:
-		return "SLASH"
+		return "/"
 	case ASTERISK:
-		return "ASTERISK"
+		return "*"
 	case MINUS:
-		return "MINUS"
+		return "-"
 	case SEMICOLON:
-		return "SEMICOLON"
+		return ";"
 	case ASSIGN:
-		return "ASSIGN"
+		return "="
 	case IDENTIFIER:
 		return "IDENTIFIER"
 	case DEF:
@@ -76,51 +79,75 @@ func (tt TokenType) String() string {
 	case FNC:
 		return "FNC"
 	case LPAREN:
-		return "LPAREN"
+		return "("
 	case RPAREN:
-		return "RPAREN"
+		return ")"
 	case COMMA:
-		return "COMMA"
+		return ","
 	case LBRACE:
-		return "LBRACE"
+		return "{"
 	case RBRACE:
-		return "RBRACE"
+		return "}"
 	case RETURN:
 		return "RETURN"
 	case TYPE:
 		return "TYPE"
 	case ARROW:
-		return "ARROW"
+		return "->"
 	case AMPERSAND:
-		return "AMPERSAND"
+		return "&"
 	case TRUE:
 		return "TRUE"
 	case FALSE:
 		return "FALSE"
 	case NOT:
-		return "NOT"
+		return "!"
 	case LAND:
-		return "LAND"
+		return "&&"
 	case LOR:
-		return "LOR"
+		return "||"
 	case EQ:
-		return "EQ"
+		return "=="
 	case NOTEQ:
-		return "NOTEQ"
+		return "!="
 	case LT:
-		return "LT"
+		return "<"
 	case LTEQ:
-		return "LTEQ"
+		return "<="
 	case GT:
-		return "GT"
+		return ">"
 	case GTEQ:
-		return "GTEQ"
+		return ">="
 	case EOF:
 		return "EOF"
 	case AS:
 		return "AS"
 	case FLOAT:
 		return "FLOAT"
+	case SIZEOF:
+		return "SIZEOF"
+	case LBRACKET:
+		return "["
+	case RBRACKET:
+		return "]"
+	case IMPORT:
+		return "IMPORT"
+	case STRING:
+		return "STRING"
+	case CHAR:
+		return "CHAR"
+	case IF:
+		return "IF"
+	case ELSE:
+		return "ELSE"
+	case WHILE:
+		return "WHILE"
+	case STRUCT:
+		return "STRUCT"
+	case DOT:
+		return "."
+	case COLON:
+		return ":"
 	default:
 		return "UNKNOWN"
 	}
@@ -132,11 +159,6 @@ type VarType struct {
 	// if true ignore base, use StructName
 	IsStructType bool
 	StructName   string
-}
-
-type PositionInfo struct {
-	Line uint32
-	Col  uint32
 }
 
 type BaseVarType uint8
@@ -209,5 +231,5 @@ type Token struct {
 	Type     TokenType
 	VarType  VarType
 	Literal  string
-	Position PositionInfo
+	Position util.Position
 }
