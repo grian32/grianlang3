@@ -90,6 +90,7 @@ var infixIntOpTypes = map[lexer.BaseVarType]struct{}{
 	lexer.Uint16: {},
 	lexer.Uint32: {},
 	lexer.Uint:   {},
+	lexer.Char:   {},
 }
 
 var llvmIntTypes = map[types.Type]struct{}{
@@ -101,11 +102,15 @@ var llvmIntTypes = map[types.Type]struct{}{
 }
 
 var varTypeIntTypes = map[lexer.BaseVarType]struct{}{
-	lexer.Bool:  {},
-	lexer.Int8:  {},
-	lexer.Int16: {},
-	lexer.Int32: {},
-	lexer.Int:   {},
+	lexer.Bool:   {},
+	lexer.Int8:   {},
+	lexer.Int16:  {},
+	lexer.Int32:  {},
+	lexer.Int:    {},
+	lexer.Uint8:  {},
+	lexer.Uint16: {},
+	lexer.Uint32: {},
+	lexer.Uint:   {},
 }
 
 var glTypeSInts = map[lexer.BaseVarType]struct{}{
@@ -211,7 +216,8 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			}
 		}
 
-		if leftIntOk && rightIntOk && leftVt == rightVt {
+		// TODO: dodgy int8/char hack, improve soon
+		if leftIntOk && rightIntOk && ((leftVt == rightVt) || (leftVt.Base == lexer.Char && rightVt.Base == lexer.Int8)) {
 			switch node.Operator {
 			case "+":
 				return e.currBlock.NewAdd(left, right), leftVt
@@ -451,6 +457,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		if !ok {
 			fmt.Printf("compile error: cannot deref non-ptr type %v\n", ptrTy)
 		}
+		vt.Pointer--
 
 		return e.currBlock.NewLoad(ptrTy.ElemType, ptr), vt
 	case *parser.CastExpression:
