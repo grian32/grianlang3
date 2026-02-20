@@ -7,9 +7,17 @@ import (
 	"strconv"
 )
 
+type Position struct {
+	StartLine uint32
+	StartCol  uint32
+	EndLine   uint32
+	EndCol    uint32
+}
+
 type Node interface {
 	TokenLiteral() string
 	String() string
+	Position() Position
 }
 
 type Statement interface {

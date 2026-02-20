@@ -134,6 +134,11 @@ type VarType struct {
 	StructName   string
 }
 
+type PositionInfo struct {
+	Line uint32
+	Col  uint32
+}
+
 type BaseVarType uint8
 
 const (
@@ -201,7 +206,8 @@ func (vt VarType) String() string {
 }
 
 type Token struct {
-	Type    TokenType
-	VarType VarType
-	Literal string
+	Type     TokenType
+	VarType  VarType
+	Literal  string
+	Position PositionInfo
 }

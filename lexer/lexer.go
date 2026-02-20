@@ -9,6 +9,9 @@ type Lexer struct {
 	pos     int
 	readPos int
 	ch      byte
+
+	currLine uint32
+	currCh   uint32
 }
 
 func New(input string) *Lexer {
@@ -58,6 +61,10 @@ func (l *Lexer) NextToken() Token {
 
 	for {
 		for l.ch == ' ' || l.ch == '\t' || l.ch == '\n' || l.ch == '\r' {
+			if l.ch == '\n' {
+				l.currLine++
+				l.currCh = 0
+			}
 			l.readChar()
 		}
 
@@ -65,6 +72,8 @@ func (l *Lexer) NextToken() Token {
 			for l.ch != '\n' {
 				l.readChar()
 			}
+			l.currLine++
+			l.currCh = 0
 			continue
 		}
 
@@ -73,7 +82,7 @@ func (l *Lexer) NextToken() Token {
 
 	sct, ok := singleCharToken[l.ch]
 	if ok {
-		tok = newToken(sct, l.ch)
+		tok = newToken(sct, l.ch, l.currLine, l.currCh)
 		// ret early here is a bit of future proofing/opti
 		l.readChar()
 		return tok
@@ -81,41 +90,61 @@ func (l *Lexer) NextToken() Token {
 
 	switch l.ch {
 	case '-':
-		tok = l.doubleCharToken('>', MINUS, ARROW)
+		tok = l.doubleCharToken('>', MINUS, ARROW, l.currLine, l.currCh)
 	case '&':
-		tok = l.doubleCharToken('&', AMPERSAND, LAND)
+		tok = l.doubleCharToken('&', AMPERSAND, LAND, l.currLine, l.currCh)
 	case '|':
-		tok = l.doubleCharToken('|', UNKNOWN, LOR)
+		tok = l.doubleCharToken('|', UNKNOWN, LOR, l.currLine, l.currCh)
 	case '=':
-		tok = l.doubleCharToken('=', ASSIGN, EQ)
+		tok = l.doubleCharToken('=', ASSIGN, EQ, l.currLine, l.currCh)
 	case '!':
-		tok = l.doubleCharToken('=', NOT, NOTEQ)
+		tok = l.doubleCharToken('=', NOT, NOTEQ, l.currLine, l.currCh)
 	case '<':
-		tok = l.doubleCharToken('=', LT, LTEQ)
+		tok = l.doubleCharToken('=', LT, LTEQ, l.currLine, l.currCh)
 	case '>':
-		tok = l.doubleCharToken('=', GT, GTEQ)
+		tok = l.doubleCharToken('=', GT, GTEQ, l.currLine, l.currCh)
 	case 0:
 		tok.Literal = ""
 		tok.Type = EOF
+		tok.Position = PositionInfo{
+			Line: l.currLine,
+			Col:  l.currCh,
+		}
 	default:
 		if l.ch == '0' && l.peekChar() == 'x' {
+			tok.Position = PositionInfo{
+				Line: l.currLine,
+				Col:  l.currCh,
+			}
 			tok.Literal = l.readHexaInt()
 			tok.Type = INT
 			return tok
 		}
 
 		if util.IsDigit(l.ch) {
+			tok.Position = PositionInfo{
+				Line: l.currLine,
+				Col:  l.currCh,
+			}
 			tok.Literal, tok.Type = l.readNumber()
 			return tok
 		}
 
 		if util.IsAlpha(l.ch) {
+			tok.Position = PositionInfo{
+				Line: l.currLine,
+				Col:  l.currCh,
+			}
 			l.readChar()
 			tok.Literal = l.readIdentifier()
 			tok.Type, tok.VarType.Base = identLookup(tok.Literal)
 			return tok
 		}
 		if l.ch == '"' {
+			tok.Position = PositionInfo{
+				Line: l.currLine,
+				Col:  l.currCh,
+			}
 			l.readChar()
 			tok.Type = STRING
 			//tok.VarType = VarType{Base: Int8, Pointer: 1};
@@ -123,6 +152,10 @@ func (l *Lexer) NextToken() Token {
 		}
 
 		if l.ch == '\'' {
+			tok.Position = PositionInfo{
+				Line: l.currLine,
+				Col:  l.currCh,
+			}
 			l.readChar()
 			tok.Type = CHAR
 			if l.ch == '\'' {
@@ -184,11 +217,11 @@ func (l *Lexer) readIdentifier() string {
 	return l.input[startPos:l.pos]
 }
 
-func newToken(tt TokenType, ch byte) Token {
-	return Token{Type: tt, Literal: string(ch)}
+func newToken(tt TokenType, ch byte, currLine, currCh uint32) Token {
+	return Token{Type: tt, Literal: string(ch), Position: PositionInfo{Line: currLine, Col: currCh}}
 }
 
-func (l *Lexer) doubleCharToken(char2 byte, tt TokenType, tt2 TokenType) Token {
+func (l *Lexer) doubleCharToken(char2 byte, tt TokenType, tt2 TokenType, currLine, currCh uint32) Token {
 	var tok Token
 
 	if l.peekChar() == char2 {
@@ -196,11 +229,15 @@ func (l *Lexer) doubleCharToken(char2 byte, tt TokenType, tt2 TokenType) Token {
 		l.readChar()
 		tok.Type = tt2
 		tok.Literal = l.input[l.pos-2 : l.pos]
+		tok.Position = PositionInfo{
+			Line: currLine,
+			Col:  currCh,
+		}
 		return tok
 	}
 
 	if tt != UNKNOWN {
-		tok = newToken(tt, l.ch)
+		tok = newToken(tt, l.ch, currLine, currCh)
 	}
 
 	return tok
