@@ -4,6 +4,7 @@ import (
 	"embed"
 	"flag"
 	"fmt"
+	"grianlang3/checker"
 	"grianlang3/emitter"
 	"grianlang3/lexer"
 	"grianlang3/parser"
@@ -47,6 +48,14 @@ func main() {
 			}
 			fatalAndCleanup(*keepll, "%s: exiting after parser errors\n", file)
 		}
+		c := checker.New()
+		c.Check(program)
+		if len(c.Errors) != 0 {
+			for _, err := range c.Errors {
+				log.Printf("%s: checker warning: %s\n", file, err)
+			}
+		}
+
 		e := emitter.New()
 		e.Emit(program)
 		llvmIr := e.Module()
