@@ -415,7 +415,6 @@ func (p *Parser) ParseProgram() *Program {
 		if stmt != nil {
 			program.Statements = append(program.Statements, stmt)
 		}
-		p.NextToken()
 	}
 
 	return program
