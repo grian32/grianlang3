@@ -15,7 +15,7 @@ type Lexer struct {
 }
 
 func New(input string) *Lexer {
-	l := &Lexer{input: input}
+	l := &Lexer{input: input, currLine: 1}
 	l.readChar()
 
 	return l
@@ -30,6 +30,7 @@ func (l *Lexer) readChar() {
 
 	l.pos = l.readPos
 	l.readPos += 1
+	l.currCh += 1
 }
 
 func (l *Lexer) peekChar() byte {
