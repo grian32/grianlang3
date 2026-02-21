@@ -229,8 +229,6 @@ func (p *Parser) parseSizeofExpression() Expression {
 	expr.Type = vt
 	expr.Position().EndLine = p.currToken.Position.EndLine
 	expr.Position().EndCol = p.currToken.Position.EndCol
-	// NOTE: unnecessary next? seems dubious, investigate l8r
-	p.NextToken()
 
 	return expr
 }
@@ -445,7 +443,9 @@ func (p *Parser) parseCallExpression(left Expression) Expression {
 	} else {
 		return nil
 	}
-	p.NextToken()
+	if !p.expectCurr(lexer.LPAREN) {
+		return nil
+	}
 
 	exp.Params = []Expression{}
 

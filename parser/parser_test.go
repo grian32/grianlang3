@@ -419,6 +419,10 @@ func TestCallExpression(t *testing.T) {
 			"print(\"hi\", 'a')",
 			"print(\"hi\000\", 97(Int8));",
 		},
+		"sizeof": {
+			"arr_new(sizeof int32)",
+			"arr_new(sizeof Int32);",
+		},
 	}
 
 	runTests(t, tests)
