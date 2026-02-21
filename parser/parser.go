@@ -415,6 +415,7 @@ func (p *Parser) parseArrayLiteral() Expression {
 			return nil
 		}
 	}
+	p.NextToken()
 
 	return lit
 }
