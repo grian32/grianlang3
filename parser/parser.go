@@ -299,7 +299,6 @@ func (p *Parser) parseStructInitialization(left Expression) Expression {
 		expr := p.parseExpression(LOWEST)
 		exp.Values = append(exp.Values, expr)
 		if p.currTokenIs(lexer.RBRACE) {
-			p.NextToken()
 			break
 		} else if p.currTokenIs(lexer.COMMA) {
 			p.NextToken()
