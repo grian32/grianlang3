@@ -53,7 +53,7 @@ func main() {
 		c.Check(program)
 		if len(c.Errors) != 0 {
 			for _, err := range c.Errors {
-				log.Printf("%s: checker warning: %s\n", file, err.String())
+				log.Printf("checker warning: %s:%s\n", file, err.String())
 			}
 		}
 

@@ -15,5 +15,6 @@ type PositionError struct {
 }
 
 func (pe *PositionError) String() string {
-	return fmt.Sprintf("%d:%d-%d:%d: %s", pe.Position.StartLine, pe.Position.StartCol, pe.Position.EndLine, pe.Position.EndCol, pe.Msg)
+	return fmt.Sprintf("%d:%d: %s", pe.Position.StartLine, pe.Position.StartCol, pe.Position.EndLine, pe.Position.EndCol, pe.Msg)
+
 }
