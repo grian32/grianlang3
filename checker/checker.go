@@ -14,7 +14,10 @@ type Checker struct {
 }
 
 func New() *Checker {
-	return &Checker{builtinNames: emitter.GetBuiltinNames()}
+	return &Checker{
+		builtinNames: emitter.GetBuiltinNames(),
+		importsFound: make(map[string]struct{}),
+	}
 }
 
 func (c *Checker) Check(node parser.Node) {
