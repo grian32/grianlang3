@@ -610,6 +610,7 @@ func (p *Parser) parseImportStatement() Statement {
 	stmt.Path = p.currToken.Literal
 	stmt.position.EndLine = p.currToken.Position.EndLine
 	stmt.position.EndCol = p.currToken.Position.EndCol
+	p.NextToken()
 
 	return stmt
 }
