@@ -299,7 +299,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			}
 		}
 
-		e.appendError(node.Position(), "compile error: operator %s invalid for types %T(%s), %T(%s)", node.Operator, node.Left, node.Left.String(), node.Right, node.Right.String())
+		e.appendError(node.Position(), "operator %s invalid for types %T(%s), %T(%s)", node.Operator, node.Left, node.Left.String(), node.Right, node.Right.String())
 	case *parser.PrefixExpression:
 		switch node.Operator {
 		case "!":
@@ -333,7 +333,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		if ident, ok := node.Left.(*parser.IdentifierExpression); ok {
 			vPtr, ok := e.variables[ident.Value]
 			if !ok {
-				e.appendError(node.Position(), "compile error: couldn't find variable of name %s used in var assignment", ident.Value)
+				e.appendError(node.Position(), "couldn't find variable of name %s used in var assignment", ident.Value)
 			}
 			right, vt := e.Emit(node.Right)
 			e.currBlock.NewStore(right, vPtr)
@@ -376,11 +376,11 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 
 		vPtr, ok := e.variables[node.Value]
 		if !ok {
-			e.appendError(node.Position(), "compile error: couldn't find variable of name %s used in var ref", node.Value)
+			e.appendError(node.Position(), "couldn't find variable of name %s used in var ref", node.Value)
 		}
 		vType, ok := e.varTypes[node.Value]
 		if !ok {
-			e.appendError(node.Position(), "compile error: couldn't find variable type of name %s used in var ref", node.Value)
+			e.appendError(node.Position(), "couldn't find variable type of name %s used in var ref", node.Value)
 		}
 		return e.currBlock.NewLoad(vType, vPtr), e.varGlTypes[node.Value]
 	case *parser.CallExpression:
@@ -397,7 +397,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 
 		fncPtr, ok := e.functions[node.Function.Value]
 		if !ok {
-			e.appendError(node.Position(), "compile error: couldn't find function with name %s", node.Function.Value)
+			e.appendError(node.Position(), "couldn't find function with name %s", node.Function.Value)
 		}
 
 		return e.currBlock.NewCall(fncPtr, args...), e.functionGlReturnTypes[node.Function.Value]
@@ -452,7 +452,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 	case *parser.ReferenceExpression:
 		vPtr, ok := e.variables[node.Var.Value]
 		if !ok {
-			e.appendError(node.Position(), "compile error: couldn't find variable with name %s in reference expr", node.Var.Value)
+			e.appendError(node.Position(), "couldn't find variable with name %s in reference expr", node.Var.Value)
 		}
 		t := e.varGlTypes[node.Var.Value]
 		t.Pointer++
@@ -462,7 +462,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 
 		ptrTy, ok := ptr.Type().(*types.PointerType)
 		if !ok {
-			e.appendError(node.Position(), "compile error: cannot deref non-ptr type %v", ptrTy)
+			e.appendError(node.Position(), "cannot deref non-ptr type %v", ptrTy)
 		}
 		vt.Pointer--
 
@@ -688,7 +688,7 @@ func (e *Emitter) emitAddress(node parser.Node) (value.Value, lexer.VarType) {
 		}
 		vPtr, ok := e.variables[node.Value]
 		if !ok {
-			e.appendError(node.Position(), "compile error: couldn't find variable with name %s in deref assignment", node.Value)
+			e.appendError(node.Position(), "couldn't find variable with name %s in deref assignment", node.Value)
 		}
 		vt := e.varGlTypes[node.Value]
 		vt.Pointer++
@@ -697,7 +697,7 @@ func (e *Emitter) emitAddress(node parser.Node) (value.Value, lexer.VarType) {
 		ptr, t := e.Emit(node.Var)
 		return ptr, t
 	default:
-		e.appendError(node.Position(), "compile error: invalid node type for emitAddress")
+		e.appendError(node.Position(), "invalid node type for emitAddress")
 		return nil, lexer.VarType{}
 	}
 }
