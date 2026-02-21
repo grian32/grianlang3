@@ -1,5 +1,17 @@
+import "dbg"
+
+struct Y {
+    int32 y
+    bool x
+}
+
+struct X {
+    Y inner
+    int32 stuff
+}
+
 fnc main() -> int32 {
-    def int32* arr = arr_new(sizeof int32);
+    def X illegal = Y:{4i32, true} as X;
 
     return 0i32;
 }

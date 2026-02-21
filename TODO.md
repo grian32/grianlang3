@@ -7,3 +7,4 @@ Future wants:
 - "io" std module
 - "arenas" std module
 - "calloc" std module - links malloc, free, from c, read as "c's allocation"
+- Extend checker to handle more cases for better error msgs, basic type checking, etc.

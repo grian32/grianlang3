@@ -469,6 +469,9 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		return e.currBlock.NewLoad(ptrTy.ElemType, ptr), vt
 	case *parser.CastExpression:
 		src, lt := e.Emit(node.Expr)
+		if lt.IsStructType || node.Type.IsStructType {
+			e.appendError(node.Position(), "casts using struct types are disallowed")
+		}
 		srcType := src.Type()
 		dstType := e.varTypeToLlvm(node.Type)
 
@@ -487,7 +490,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 				return e.currBlock.NewZExt(src, dstType), node.Type
 			}
 
-			dstSize := getSizeForVarType(node.Type)
+			dstSize := e.getSizeForVarType(node.Type)
 			srcSize := getSizeForLlvmType(src.Type())
 
 			if srcSize < dstSize {
@@ -521,7 +524,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			return e.currBlock.NewBitCast(src, dstType), node.Type
 		}
 	case *parser.SizeofExpression:
-		return constant.NewInt(types.I64, getSizeForVarType(node.Type)), lexer.VarType{Base: lexer.Uint, Pointer: 0}
+		return constant.NewInt(types.I64, e.getSizeForVarType(node.Type)), lexer.VarType{Base: lexer.Uint, Pointer: 0}
 	case *parser.ArrayLiteral:
 		newFnc, ok := e.functions["arr_new"]
 		if !ok {
@@ -532,7 +535,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			e.appendError(node.Position(), "cannot find arr_push while emitting array literal")
 		}
 
-		sizeInt := constant.NewInt(types.I64, getSizeForVarType(node.Type))
+		sizeInt := constant.NewInt(types.I64, e.getSizeForVarType(node.Type))
 		newCall := e.currBlock.NewCall(newFnc, sizeInt)
 		node.Type.Pointer++
 		newCallCasted := e.currBlock.NewBitCast(newCall, e.varTypeToLlvm(node.Type))
@@ -802,9 +805,18 @@ func (e *Emitter) appendError(pos *util.Position, s string, v ...any) {
 	})
 }
 
-func getSizeForVarType(vt lexer.VarType) int64 {
+func (e *Emitter) getSizeForVarType(vt lexer.VarType) int64 {
 	if vt.Pointer > 0 {
 		return 8
+	}
+	if vt.IsStructType {
+		// validated by checker eventually
+		stFields, _ := e.structMemberTypes[vt.StructName]
+		var sum int64 = 0
+		for _, field := range stFields {
+			sum += e.getSizeForVarType(field)
+		}
+		return sum
 	}
 	switch vt.Base {
 	case lexer.Bool, lexer.Int8, lexer.Uint8, lexer.Char:
