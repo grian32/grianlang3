@@ -9,6 +9,11 @@ type Position struct {
 	EndCol    uint32
 }
 
+func (pe *Position) CopyEnd(other *Position) {
+	pe.EndLine = other.EndLine
+	pe.EndCol = other.EndCol
+}
+
 type PositionError struct {
 	Position *Position
 	Msg      string
@@ -16,5 +21,4 @@ type PositionError struct {
 
 func (pe *PositionError) String() string {
 	return fmt.Sprintf("%d:%d: %s", pe.Position.StartLine, pe.Position.StartCol, pe.Msg)
-
 }

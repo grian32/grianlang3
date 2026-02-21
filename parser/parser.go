@@ -277,8 +277,7 @@ func (p *Parser) parseCastExpression(left Expression) Expression {
 	p.NextToken() // advance past type/ident
 	p.getPointers(&castType)
 	expr.Type = castType
-	expr.Position().EndLine = p.currToken.Position.EndLine
-	expr.Position().EndCol = p.currToken.Position.EndCol
+	expr.Position().CopyEnd(&p.currToken.Position)
 
 	return expr
 }
@@ -464,8 +463,7 @@ func (p *Parser) parseCallExpression(left Expression) Expression {
 			return nil
 		}
 	}
-	exp.Position().EndLine = p.currToken.Position.EndLine
-	exp.Position().EndCol = p.currToken.Position.EndCol
+	exp.Position().CopyEnd(&p.currToken.Position)
 	p.NextToken()
 
 	return exp
@@ -534,8 +532,7 @@ func (p *Parser) parseStructStatement() Statement {
 		stmt.Names[p.currToken.Literal] = len(stmt.Types) - 1
 		p.NextToken()
 	}
-	stmt.Position().EndLine = p.currToken.Position.EndLine
-	stmt.Position().EndCol = p.currToken.Position.EndCol
+	stmt.Position().CopyEnd(&p.currToken.Position)
 	p.NextToken()
 
 	return stmt
@@ -553,8 +550,8 @@ func (p *Parser) parseWhileStatement() Statement {
 		return nil
 	}
 	stmt.Body = p.parseBlockStatement()
-	stmt.position.EndLine = p.currToken.Position.EndLine
-	stmt.position.EndCol = p.currToken.Position.EndCol
+
+	stmt.Position().CopyEnd(&p.currToken.Position)
 	if !p.expectCurr(lexer.RBRACE) {
 		return nil
 	}
@@ -590,8 +587,7 @@ func (p *Parser) parseIfStatement() Statement {
 	}
 	stmt.Fail = p.parseBlockStatement()
 
-	stmt.Position().EndLine = p.currToken.Position.EndLine
-	stmt.Position().EndCol = p.currToken.Position.EndCol
+	stmt.position.CopyEnd(&p.currToken.Position)
 	if !p.expectCurr(lexer.RBRACE) {
 		return nil
 	}
@@ -733,8 +729,7 @@ func (p *Parser) parseFunctionStatement() Statement {
 	if !p.expectCurr(lexer.RBRACE) {
 		return nil
 	}
-	stmt.Position().EndLine = currPos.EndLine
-	stmt.Position().EndCol = currPos.EndCol
+	stmt.Position().CopyEnd(&currPos)
 
 	return stmt
 }
