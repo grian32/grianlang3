@@ -40,8 +40,13 @@ func main() {
 		l := lexer.New(string(input))
 		p := parser.New(l)
 		program := p.ParseProgram()
-		if *dbg {
-			log.Printf("%s: %s\n", file, program.String())
+		err = safeRun(func() {
+			if *dbg {
+				log.Printf("%s: %s\n", file, program.String())
+			}
+		})
+		if err != nil {
+			log.Printf("%s: recovered printing dbg ast: %s\n", file, err)
 		}
 		if len(p.Errors) != 0 {
 			for _, err := range p.Errors {
@@ -58,7 +63,19 @@ func main() {
 		}
 
 		e := emitter.New()
-		e.Emit(program)
+		err = safeRun(func() {
+			e.Emit(program)
+		})
+		if len(e.Errors) != 0 {
+			for _, err := range e.Errors {
+				log.Printf("compiler error: %s:%s\n", file, err.String())
+			}
+			fatalAndCleanup(*keepll, "exiting after compiler errors\n")
+		}
+		if err != nil {
+			log.Printf("%s: recovered emitting llvm ir: %s\n", file, err)
+			fatalAndCleanup(*keepll, "exiting after compiler panic\n")
+		}
 		llvmIr := e.Module()
 
 		fileName := fmt.Sprintf("./lltemp/%s.ll", file)
@@ -128,4 +145,14 @@ func fatalAndCleanup(keepll bool, fmt string, v ...any) {
 		}
 	}
 	log.Fatalf(fmt, v...)
+}
+
+func safeRun(fn func()) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic: %v", r)
+		}
+	}()
+	fn()
+	return nil
 }

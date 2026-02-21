@@ -1,9 +1,10 @@
 package emitter
 
 import (
+	"fmt"
 	"grianlang3/lexer"
 	"grianlang3/parser"
-	"log"
+	"grianlang3/util"
 	"os"
 	"strings"
 
@@ -39,6 +40,8 @@ type Emitter struct {
 	structTypes         map[string]*types.StructType
 	structMemberIndexes map[string]map[string]int
 	structMemberTypes   map[string][]lexer.VarType
+
+	Errors []util.PositionError
 }
 
 // VariableState used simply for transport when restoring state across if stmt blocks
@@ -163,23 +166,23 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		if node.Operator == "." {
 			// TODO: gep if ptr lhs
 			if !leftVt.IsStructType {
-				log.Fatalf("compiler error: non struct type %v on lhs of dot operator\n", leftVt)
+				e.appendError(node.Position(), "non struct type %v on lhs of dot operator", leftVt)
 			}
 			var fieldName string
 			if ident, ok := node.Right.(*parser.IdentifierExpression); ok {
 				fieldName = ident.Value
 			} else {
-				log.Fatalf("compiler error: non identifier %T on rhs of dot operator\n", node.Right)
+				e.appendError(node.Position(), "non identifier %T on rhs of dot operator", node.Right)
 			}
 
 			structType, ok := e.structTypes[leftVt.StructName]
 			if !ok {
-				log.Fatalf("compiler error: couldn't find struct type %s in field access\n", leftVt.StructName)
+				e.appendError(node.Position(), "couldn't find struct type %s in field access", leftVt.StructName)
 			}
 			fieldIndexes, _ := e.structMemberIndexes[leftVt.StructName]
 			fieldIndex, ok := fieldIndexes[fieldName]
 			if !ok {
-				log.Fatalf("compiler error: couldn't find field %s on struct of type %s\n", fieldName, leftVt.StructName)
+				e.appendError(node.Position(), "couldn't find field %s on struct of type %s", fieldName, leftVt.StructName)
 			}
 			fieldType := e.structMemberTypes[leftVt.StructName][fieldIndex]
 			if leftVt.Pointer > 0 {
@@ -296,7 +299,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			}
 		}
 
-		log.Fatalf("compile error: operator %s invalid for types %T(%s), %T(%s)", node.Operator, node.Left, node.Left.String(), node.Right, node.Right.String())
+		e.appendError(node.Position(), "compile error: operator %s invalid for types %T(%s), %T(%s)", node.Operator, node.Left, node.Left.String(), node.Right, node.Right.String())
 	case *parser.PrefixExpression:
 		switch node.Operator {
 		case "!":
@@ -330,7 +333,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		if ident, ok := node.Left.(*parser.IdentifierExpression); ok {
 			vPtr, ok := e.variables[ident.Value]
 			if !ok {
-				log.Fatalf("compile error: couldn't find variable of name %s used in var assignment", ident.Value)
+				e.appendError(node.Position(), "compile error: couldn't find variable of name %s used in var assignment", ident.Value)
 			}
 			right, vt := e.Emit(node.Right)
 			e.currBlock.NewStore(right, vPtr)
@@ -345,13 +348,13 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			if ident, ok := infix.Left.(*parser.IdentifierExpression); ok {
 				name = ident.Value
 			} else {
-				log.Fatalf("compiler error: expected identifier on lhs of dot operator\n")
+				e.appendError(node.Position(), "expected identifier on lhs of dot operator")
 			}
 			left, leftVt := e.Emit(infix.Left)
 			right, _ := e.Emit(node.Right)
 			_, ok := e.structTypes[leftVt.StructName]
 			if !ok {
-				log.Fatalf("compiler error: could not find struct with type %s\n", leftVt.StructName)
+				e.appendError(node.Position(), "could not find struct with type %s", leftVt.StructName)
 			}
 			var fieldName string
 			if ident, ok := infix.Right.(*parser.IdentifierExpression); ok {
@@ -361,7 +364,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			insert := e.currBlock.NewInsertValue(left, right, uint64(fieldIdx))
 			vPtr, ok := e.variables[name]
 			if !ok {
-				log.Fatalf("compiler error: could not find variable with name %s\n", name)
+				e.appendError(node.Position(), "could not find variable with name %s", name)
 			}
 			e.currBlock.NewStore(insert, vPtr)
 			return insert, leftVt
@@ -373,16 +376,17 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 
 		vPtr, ok := e.variables[node.Value]
 		if !ok {
-			log.Fatalf("compile error: couldn't find variable of name %s used in var ref", node.Value)
+			e.appendError(node.Position(), "compile error: couldn't find variable of name %s used in var ref", node.Value)
 		}
 		vType, ok := e.varTypes[node.Value]
 		if !ok {
-			log.Fatalf("compile error: couldn't find variable type of name %s used in var ref", node.Value)
+			e.appendError(node.Position(), "compile error: couldn't find variable type of name %s used in var ref", node.Value)
 		}
 		return e.currBlock.NewLoad(vType, vPtr), e.varGlTypes[node.Value]
 	case *parser.CallExpression:
 		if _, ok := e.astFuncs[node.Function.Value]; ok && e.asmModuleImported {
-			return e.emitAsmIntrinsic(node.Function.Value, node.Params)
+			// NOTE: maybe pass node directly to emitAsmIntrinsic ? computing .Position() when it might not be used seems wasteful
+			return e.emitAsmIntrinsic(node.Position(), node.Function.Value, node.Params)
 		}
 		var args []value.Value
 
@@ -393,7 +397,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 
 		fncPtr, ok := e.functions[node.Function.Value]
 		if !ok {
-			log.Fatalf("compile error: couldn't find function with name %s", node.Function.Value)
+			e.appendError(node.Position(), "compile error: couldn't find function with name %s", node.Function.Value)
 		}
 
 		return e.currBlock.NewCall(fncPtr, args...), e.functionGlReturnTypes[node.Function.Value]
@@ -431,7 +435,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			if node.Type.Base == lexer.None && !node.Type.IsStructType && node.Type.Pointer == 0 {
 				e.currBlock.NewRet(nil)
 			} else {
-				log.Fatalf("compiler error: missing return statement in non-void function\n")
+				e.appendError(node.Position(), "missing return statement in non-void function")
 			}
 		}
 
@@ -448,7 +452,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 	case *parser.ReferenceExpression:
 		vPtr, ok := e.variables[node.Var.Value]
 		if !ok {
-			log.Fatalf("compile error: couldn't find variable with name %s in reference expr", node.Var.Value)
+			e.appendError(node.Position(), "compile error: couldn't find variable with name %s in reference expr", node.Var.Value)
 		}
 		t := e.varGlTypes[node.Var.Value]
 		t.Pointer++
@@ -458,7 +462,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 
 		ptrTy, ok := ptr.Type().(*types.PointerType)
 		if !ok {
-			log.Fatalf("compile error: cannot deref non-ptr type %v\n", ptrTy)
+			e.appendError(node.Position(), "compile error: cannot deref non-ptr type %v", ptrTy)
 		}
 		vt.Pointer--
 
@@ -499,7 +503,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		} else if _, ok := src.Type().(*types.PointerType); ok && rightIntOk && node.Type.Pointer == 0 {
 			if node.Type.Base != lexer.Int {
 				// non 64 bit which is llvm default on most (i.e 64bit) systems
-				log.Fatalf("compile warning: pointer to int cast may truncate")
+				e.appendError(node.Position(), "compile warning: pointer to int cast may truncate")
 			}
 			return e.currBlock.NewPtrToInt(src, e.varTypeToLlvm(node.Type)), node.Type
 		} else if leftIntOk && rightFloatOk {
@@ -521,11 +525,11 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 	case *parser.ArrayLiteral:
 		newFnc, ok := e.functions["arr_new"]
 		if !ok {
-			log.Fatalf("compiler error: cannot find arr_new while emitting array literal\n")
+			e.appendError(node.Position(), "cannot find arr_new while emitting array literal")
 		}
 		push, ok := e.functions["arr_push"]
 		if !ok {
-			log.Fatalf("compiler error: cannot find arr_push while emitting array literal\n")
+			e.appendError(node.Position(), "cannot find arr_push while emitting array literal")
 		}
 
 		sizeInt := constant.NewInt(types.I64, getSizeForVarType(node.Type))
@@ -545,7 +549,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		if strings.HasSuffix(node.Path, ".gl3") {
 			f, err := os.ReadFile(node.Path)
 			if err != nil {
-				log.Fatalf("compiler error: cannot find %s file described in import stmt", f)
+				e.appendError(node.Position(), "cannot find %s file described in import stmt", f)
 				return nil, lexer.VarType{}
 			}
 			declares := findDeclares(string(f))
@@ -563,7 +567,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		} else {
 			err := AddBuiltinModule(e, node.Path)
 			if err != nil {
-				log.Fatalf("compiler error: couldn't import builtin module %s", node.Path)
+				e.appendError(node.Position(), "couldn't import builtin module %s", node.Path)
 			}
 		}
 	case *parser.StringLiteral:
@@ -654,7 +658,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 	case *parser.StructInitializationExpression:
 		structType, ok := e.structTypes[node.Name]
 		if !ok {
-			log.Fatalf("compiler error: couldnt find struct with name %s for initialization\n", node.Name)
+			e.appendError(node.Position(), "couldnt find struct with name %s for initialization", node.Name)
 		}
 		var fields []constant.Constant
 		for _, expr := range node.Values {
@@ -662,7 +666,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			if cnst, ok := out.(constant.Constant); ok {
 				fields = append(fields, cnst)
 			} else {
-				log.Fatalf("compiler error: non constant field in struct initialization\n")
+				e.appendError(node.Position(), "non constant field in struct initialization")
 			}
 		}
 		// lol initializing the vartype directly here is far easier (and probably more efficient) than storing it somewhere
@@ -684,7 +688,7 @@ func (e *Emitter) emitAddress(node parser.Node) (value.Value, lexer.VarType) {
 		}
 		vPtr, ok := e.variables[node.Value]
 		if !ok {
-			log.Fatalf("compile error: couldn't find variable with name %s in deref assignment", node.Value)
+			e.appendError(node.Position(), "compile error: couldn't find variable with name %s in deref assignment", node.Value)
 		}
 		vt := e.varGlTypes[node.Value]
 		vt.Pointer++
@@ -693,24 +697,24 @@ func (e *Emitter) emitAddress(node parser.Node) (value.Value, lexer.VarType) {
 		ptr, t := e.Emit(node.Var)
 		return ptr, t
 	default:
-		log.Fatalf("compile error: invalid node type for emitAddress\n")
+		e.appendError(node.Position(), "compile error: invalid node type for emitAddress")
 		return nil, lexer.VarType{}
 	}
 }
 
-func (e *Emitter) emitAsmIntrinsic(fnc string, args []parser.Expression) (value.Value, lexer.VarType) {
+func (e *Emitter) emitAsmIntrinsic(pos *util.Position, fnc string, args []parser.Expression) (value.Value, lexer.VarType) {
 	switch fnc {
 	case "__asm__salloc":
 		if len(args) != 2 {
-			log.Fatalf("compiler error: invalid amount of arguments for __asm__salloc: %d\n", len(args))
+			e.appendError(pos, "invalid amount of arguments for __asm__salloc: %d", len(args))
 		}
 		size, ok := args[0].(*parser.IntegerLiteral)
 		if !ok {
-			log.Fatalf("compiler error: first argument of __asm__salloc is not integer: %T", args[0])
+			e.appendError(pos, "first argument of __asm__salloc is not integer: %T", args[0])
 		}
 		sizeof, ok := args[1].(*parser.SizeofExpression)
 		if !ok {
-			log.Fatalf("compiler error: second argument of __asm__salloc is not sizeof expr: %T", args[1])
+			e.appendError(pos, "second argument of __asm__salloc is not sizeof expr: %T", args[1])
 		}
 		var arrSize uint64
 		if _, ok := glTypeUInts[size.Type.Base]; ok {
@@ -724,7 +728,7 @@ func (e *Emitter) emitAsmIntrinsic(fnc string, args []parser.Expression) (value.
 		vt.Pointer++
 		return e.currBlock.NewBitCast(ptr, e.varTypeToLlvm(vt)), vt // or gep into elem 0? this seems more suitable..
 	default:
-		log.Fatalf("compiler error: unknown asm intrinsic function: %s, %v\n", fnc, args)
+		e.appendError(pos, "unknown asm intrinsic function: %s, %v", fnc, args)
 		return nil, lexer.VarType{}
 	}
 }
@@ -789,6 +793,13 @@ func (e *Emitter) varTypeToLlvm(vt lexer.VarType) types.Type {
 	}
 
 	return baseType
+}
+
+func (e *Emitter) appendError(pos *util.Position, s string, v ...any) {
+	e.Errors = append(e.Errors, util.PositionError{
+		Position: pos,
+		Msg:      fmt.Sprintf(s, v...),
+	})
 }
 
 func getSizeForVarType(vt lexer.VarType) int64 {
