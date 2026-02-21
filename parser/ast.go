@@ -4,20 +4,21 @@ import (
 	"bytes"
 	"fmt"
 	"grianlang3/lexer"
+	"grianlang3/util"
 	"strconv"
 )
 
-type Position struct {
-	StartLine uint32
-	StartCol  uint32
-	EndLine   uint32
-	EndCol    uint32
+var zeroPos = util.Position{
+	StartLine: 0,
+	EndLine:   0,
+	StartCol:  0,
+	EndCol:    0,
 }
 
 type Node interface {
 	TokenLiteral() string
 	String() string
-	Position() Position
+	Position() *util.Position
 }
 
 type Statement interface {
@@ -40,7 +41,6 @@ func (p *Program) TokenLiteral() string {
 	}
 	return ""
 }
-
 func (p *Program) String() string {
 	var out bytes.Buffer
 
@@ -50,6 +50,19 @@ func (p *Program) String() string {
 	}
 
 	return out.String()
+}
+func (p *Program) Position() *util.Position {
+	if len(p.Statements) == 0 {
+		return &zeroPos
+	}
+	firstPos := p.Statements[0].Position()
+	lastPos := p.Statements[len(p.Statements)-1].Position()
+	return &util.Position{
+		StartLine: firstPos.StartLine,
+		StartCol:  firstPos.StartCol,
+		EndLine:   lastPos.EndLine,
+		EndCol:    lastPos.EndCol,
+	}
 }
 
 type ExpressionStatement struct {
@@ -65,6 +78,13 @@ func (es *ExpressionStatement) String() string {
 	}
 
 	return ""
+}
+func (es *ExpressionStatement) Position() *util.Position {
+	if es.Expression != nil {
+		return es.Expression.Position()
+	}
+
+	return &zeroPos
 }
 
 type IntegerLiteral struct {
@@ -85,6 +105,17 @@ func (il *IntegerLiteral) String() string {
 	}
 	return il.Token.Literal + "(" + il.Type.String() + ")"
 }
+func (il *IntegerLiteral) Position() *util.Position {
+	pos := il.Token.Position
+	switch il.Type.Base {
+	case lexer.Int8, lexer.Uint8:
+		pos.EndCol += 2
+	case lexer.Int16, lexer.Uint16, lexer.Int32, lexer.Uint32, lexer.Uint:
+		pos.EndCol += 3 // account for literal
+	}
+
+	return &pos
+}
 
 type InfixExpression struct {
 	Token    lexer.Token
@@ -97,6 +128,16 @@ func (ie *InfixExpression) expressionNode()      { /* noop */ }
 func (ie *InfixExpression) TokenLiteral() string { return ie.Token.Literal }
 func (ie *InfixExpression) String() string {
 	return "(" + ie.Left.String() + " " + ie.Operator + " " + ie.Right.String() + ")"
+}
+func (ie *InfixExpression) Position() *util.Position {
+	leftPos := ie.Left.Position()
+	rightPos := ie.Right.Position()
+	return &util.Position{
+		StartLine: leftPos.StartLine,
+		StartCol:  leftPos.StartCol,
+		EndLine:   rightPos.EndLine,
+		EndCol:    rightPos.EndCol,
+	}
 }
 
 type DefStatement struct {
@@ -111,6 +152,17 @@ func (ds *DefStatement) TokenLiteral() string { return ds.Token.Literal }
 func (ds *DefStatement) String() string {
 	return "def " + ds.Type.String() + " " + ds.Name.String() + " = " + ds.Right.String()
 }
+func (ds *DefStatement) Position() *util.Position {
+	tokenPos := ds.Token.Position
+	rightPos := ds.Right.Position()
+
+	return &util.Position{
+		StartLine: tokenPos.StartLine,
+		StartCol:  tokenPos.StartCol,
+		EndLine:   rightPos.EndLine,
+		EndCol:    rightPos.EndCol,
+	}
+}
 
 type AssignmentExpression struct {
 	Token lexer.Token
@@ -123,15 +175,26 @@ func (ae *AssignmentExpression) TokenLiteral() string { return ae.Token.Literal 
 func (ae *AssignmentExpression) String() string {
 	return ae.Left.String() + " = " + ae.Right.String()
 }
+func (ae *AssignmentExpression) Position() *util.Position {
+	leftPos := ae.Left.Position()
+	rightPos := ae.Right.Position()
+	return &util.Position{
+		StartLine: leftPos.StartLine,
+		StartCol:  leftPos.StartCol,
+		EndLine:   rightPos.EndLine,
+		EndCol:    rightPos.EndCol,
+	}
+}
 
 type IdentifierExpression struct {
 	Token lexer.Token
 	Value string
 }
 
-func (ie *IdentifierExpression) expressionNode()      { /* noop */ }
-func (ie *IdentifierExpression) TokenLiteral() string { return ie.Token.Literal }
-func (ie *IdentifierExpression) String() string       { return ie.Value }
+func (ie *IdentifierExpression) expressionNode()          { /* noop */ }
+func (ie *IdentifierExpression) TokenLiteral() string     { return ie.Token.Literal }
+func (ie *IdentifierExpression) String() string           { return ie.Value }
+func (ie *IdentifierExpression) Position() *util.Position { return &ie.Token.Position }
 
 type ReturnStatement struct {
 	Token lexer.Token
@@ -141,6 +204,16 @@ type ReturnStatement struct {
 func (rs *ReturnStatement) statementNode()       { /* noop */ }
 func (rs *ReturnStatement) TokenLiteral() string { return rs.Token.Literal }
 func (rs *ReturnStatement) String() string       { return "return " + rs.Expr.String() }
+func (rs *ReturnStatement) Position() *util.Position {
+	tokPos := rs.Token.Position
+	exprPos := rs.Expr.Position()
+	return &util.Position{
+		StartLine: tokPos.StartLine,
+		StartCol:  tokPos.StartCol,
+		EndLine:   exprPos.EndLine,
+		EndCol:    exprPos.EndCol,
+	}
+}
 
 type BlockStatement struct {
 	Token      lexer.Token
@@ -162,6 +235,11 @@ func (bs *BlockStatement) String() string {
 	return out.String()
 }
 
+// Position should not be used
+func (bs *BlockStatement) Position() *util.Position {
+	return &zeroPos
+}
+
 type FunctionParameter struct {
 	Type lexer.VarType
 	Name *IdentifierExpression
@@ -170,11 +248,12 @@ type FunctionParameter struct {
 func (fp *FunctionParameter) String() string { return fp.Type.String() + " " + fp.Name.String() }
 
 type FunctionStatement struct {
-	Token  lexer.Token
-	Name   *IdentifierExpression
-	Type   lexer.VarType
-	Params []FunctionParameter
-	Body   *BlockStatement
+	Token    lexer.Token
+	Name     *IdentifierExpression
+	Type     lexer.VarType
+	Params   []FunctionParameter
+	Body     *BlockStatement
+	position util.Position
 }
 
 func (fs *FunctionStatement) statementNode()       { /* noop */ }
@@ -193,11 +272,15 @@ func (fs *FunctionStatement) String() string {
 	out.WriteString(") -> " + fs.Type.String() + " { " + fs.Body.String() + " }")
 	return out.String()
 }
+func (fs *FunctionStatement) Position() *util.Position {
+	return &fs.position
+}
 
 type CallExpression struct {
 	Token    lexer.Token
 	Function *IdentifierExpression
 	Params   []Expression
+	position util.Position
 }
 
 func (ce *CallExpression) expressionNode()      { /* noop */ }
@@ -217,6 +300,9 @@ func (ce *CallExpression) String() string {
 
 	return out.String()
 }
+func (ce *CallExpression) Position() *util.Position {
+	return &ce.position
+}
 
 type ReferenceExpression struct {
 	Token lexer.Token
@@ -226,6 +312,15 @@ type ReferenceExpression struct {
 func (re *ReferenceExpression) expressionNode()      { /* noop */ }
 func (re *ReferenceExpression) TokenLiteral() string { return re.Token.Literal }
 func (re *ReferenceExpression) String() string       { return "&" + re.Var.String() }
+func (re *ReferenceExpression) Position() *util.Position {
+	vPos := re.Var.Position()
+	return &util.Position{
+		StartLine: re.Token.Position.StartLine,
+		StartCol:  re.Token.Position.StartCol,
+		EndLine:   vPos.EndLine,
+		EndCol:    vPos.EndCol,
+	}
+}
 
 type DereferenceExpression struct {
 	Token lexer.Token
@@ -235,6 +330,15 @@ type DereferenceExpression struct {
 func (de *DereferenceExpression) expressionNode()      { /* noop */ }
 func (de *DereferenceExpression) TokenLiteral() string { return de.Token.Literal }
 func (de *DereferenceExpression) String() string       { return "*" + de.Var.String() }
+func (de *DereferenceExpression) Position() *util.Position {
+	vPos := de.Var.Position()
+	return &util.Position{
+		StartLine: de.Token.Position.StartLine,
+		StartCol:  de.Token.Position.StartCol,
+		EndLine:   vPos.EndLine,
+		EndCol:    vPos.EndCol,
+	}
+}
 
 type BooleanExpression struct {
 	Token lexer.Token
@@ -244,6 +348,9 @@ type BooleanExpression struct {
 func (be *BooleanExpression) expressionNode()      { /* noop */ }
 func (be *BooleanExpression) TokenLiteral() string { return be.Token.Literal }
 func (be *BooleanExpression) String() string       { return fmt.Sprintf("%t", be.Value) }
+func (be *BooleanExpression) Position() *util.Position {
+	return &be.Token.Position
+}
 
 type PrefixExpression struct {
 	Token    lexer.Token
@@ -254,16 +361,29 @@ type PrefixExpression struct {
 func (pe *PrefixExpression) expressionNode()      { /* noop */ }
 func (pe *PrefixExpression) TokenLiteral() string { return pe.Token.Literal }
 func (pe *PrefixExpression) String() string       { return "(" + pe.Operator + pe.Right.String() + ")" }
+func (pe *PrefixExpression) Position() *util.Position {
+	rPos := pe.Right.Position()
+	return &util.Position{
+		StartLine: pe.Token.Position.StartLine,
+		StartCol:  pe.Token.Position.StartCol,
+		EndLine:   rPos.EndLine,
+		EndCol:    rPos.EndCol,
+	}
+}
 
 type CastExpression struct {
-	Token lexer.Token
-	Expr  Expression
-	Type  lexer.VarType
+	Token    lexer.Token
+	Expr     Expression
+	Type     lexer.VarType
+	position util.Position
 }
 
 func (ce *CastExpression) expressionNode()      { /* noop */ }
 func (ce *CastExpression) TokenLiteral() string { return ce.Token.Literal }
 func (ce *CastExpression) String() string       { return ce.Expr.String() + " as " + ce.Type.String() }
+func (ce *CastExpression) Position() *util.Position {
+	return &ce.position
+}
 
 type FloatLiteral struct {
 	Token lexer.Token
@@ -274,15 +394,22 @@ type FloatLiteral struct {
 func (fl *FloatLiteral) expressionNode()      { /* noop */ }
 func (fl *FloatLiteral) TokenLiteral() string { return fl.Token.Literal }
 func (fl *FloatLiteral) String() string       { return fl.Token.Literal + "(" + fl.Type.String() + ")" }
+func (fl *FloatLiteral) Position() *util.Position {
+	return &fl.Token.Position
+}
 
 type SizeofExpression struct {
-	Token lexer.Token
-	Type  lexer.VarType
+	Token    lexer.Token
+	Type     lexer.VarType
+	position util.Position
 }
 
 func (se *SizeofExpression) expressionNode()      { /* noop */ }
 func (se *SizeofExpression) TokenLiteral() string { return se.Token.Literal }
 func (se *SizeofExpression) String() string       { return "sizeof " + se.Type.String() }
+func (se *SizeofExpression) Position() *util.Position {
+	return &se.position
+}
 
 type ArrayLiteral struct {
 	Token lexer.Token
@@ -308,15 +435,28 @@ func (al *ArrayLiteral) String() string {
 
 	return out.String()
 }
+func (al *ArrayLiteral) Position() *util.Position {
+	lastItemPos := al.Items[len(al.Items)-1].Position()
+	return &util.Position{
+		StartLine: al.Token.Position.StartLine,
+		StartCol:  al.Token.Position.StartCol,
+		EndLine:   lastItemPos.EndLine,
+		EndCol:    lastItemPos.EndCol,
+	}
+}
 
 type ImportStatement struct {
-	Token lexer.Token
-	Path  string
+	Token    lexer.Token
+	Path     string
+	position util.Position
 }
 
 func (is *ImportStatement) statementNode()       { /* noop */ }
 func (is *ImportStatement) TokenLiteral() string { return is.Token.Literal }
 func (is *ImportStatement) String() string       { return "import \"" + is.Path + "\"" }
+func (is *ImportStatement) Position() *util.Position {
+	return &is.position
+}
 
 type StringLiteral struct {
 	Token lexer.Token
@@ -326,12 +466,16 @@ type StringLiteral struct {
 func (sl *StringLiteral) expressionNode()      { /* noop */ }
 func (sl *StringLiteral) TokenLiteral() string { return sl.Token.Literal }
 func (sl *StringLiteral) String() string       { return "\"" + sl.Value + "\"" }
+func (sl *StringLiteral) Position() *util.Position {
+	return &sl.Token.Position
+}
 
 type IfStatement struct {
 	Token     lexer.Token
 	Condition Expression
 	Success   *BlockStatement
 	Fail      *BlockStatement
+	position  util.Position
 }
 
 func (is *IfStatement) statementNode()       { /* noop */ }
@@ -351,11 +495,15 @@ func (is *IfStatement) String() string {
 
 	return out.String()
 }
+func (is *IfStatement) Position() *util.Position {
+	return &is.position
+}
 
 type WhileStatement struct {
 	Token     lexer.Token
 	Condition Expression
 	Body      *BlockStatement
+	position  util.Position
 }
 
 func (ws *WhileStatement) statementNode()       { /* noop */ }
@@ -370,14 +518,18 @@ func (ws *WhileStatement) String() string {
 
 	return out.String()
 }
+func (ws *WhileStatement) Position() *util.Position {
+	return &ws.position
+}
 
 type StructStatement struct {
 	Token lexer.Token
 	Name  string
 	// this is done intentionally as in llvm terms theyre just indexes, so first component just maps to
 	// 0, so map[compname]idx, types[idx]
-	Types []lexer.VarType
-	Names map[string]int
+	Types    []lexer.VarType
+	Names    map[string]int
+	position util.Position
 }
 
 func (ss *StructStatement) statementNode()       { /* noop */ }
@@ -395,6 +547,9 @@ func (ss *StructStatement) String() string {
 	}
 	out.WriteString("}")
 	return out.String()
+}
+func (ss *StructStatement) Position() *util.Position {
+	return &ss.position
 }
 
 type StructInitializationExpression struct {
@@ -417,4 +572,13 @@ func (sie *StructInitializationExpression) String() string {
 	}
 	out.WriteString("}")
 	return out.String()
+}
+func (sie *StructInitializationExpression) Position() *util.Position {
+	lastValPos := sie.Values[len(sie.Values)-1].Position()
+	return &util.Position{
+		StartLine: sie.Token.Position.StartLine,
+		StartCol:  sie.Token.Position.StartCol,
+		EndLine:   lastValPos.EndLine,
+		EndCol:    lastValPos.EndCol,
+	}
 }

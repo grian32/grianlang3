@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"grianlang3/lexer"
+	"grianlang3/util"
 	"strconv"
 )
 
@@ -206,7 +207,10 @@ func (p *Parser) parseStringLiteral() Expression {
 }
 
 func (p *Parser) parseSizeofExpression() Expression {
-	expr := &SizeofExpression{Token: p.currToken}
+	expr := &SizeofExpression{Token: p.currToken, position: util.Position{
+		StartLine: p.currToken.Position.StartLine,
+		StartCol:  p.currToken.Position.StartCol,
+	}}
 	var vt lexer.VarType
 	p.NextToken() // past sizeof
 	if p.currTokenIs(lexer.TYPE) {
@@ -223,6 +227,9 @@ func (p *Parser) parseSizeofExpression() Expression {
 	p.getPointers(&vt)
 
 	expr.Type = vt
+	expr.Position().EndLine = p.currToken.Position.EndLine
+	expr.Position().EndCol = p.currToken.Position.EndCol
+	// NOTE: unnecessary next? seems dubious, investigate l8r
 	p.NextToken()
 
 	return expr
@@ -238,6 +245,7 @@ func (p *Parser) parseFloatLiteral() Expression {
 	}
 
 	lit.Value = float32(value)
+	// NOTE: not skipping tokens? dubious? investigate later
 
 	return lit
 }
@@ -250,7 +258,10 @@ func (p *Parser) parseCharLiteral() Expression {
 }
 
 func (p *Parser) parseCastExpression(left Expression) Expression {
-	expr := &CastExpression{Token: p.currToken}
+	expr := &CastExpression{Token: p.currToken, position: util.Position{
+		StartLine: p.currToken.Position.StartLine,
+		StartCol:  p.currToken.Position.StartCol,
+	}}
 	expr.Expr = left
 
 	p.NextToken() // asvance past AS
@@ -268,6 +279,8 @@ func (p *Parser) parseCastExpression(left Expression) Expression {
 	p.NextToken() // advance past type/ident
 	p.getPointers(&castType)
 	expr.Type = castType
+	expr.Position().EndLine = p.currToken.Position.EndLine
+	expr.Position().EndCol = p.currToken.Position.EndCol
 
 	return expr
 }
@@ -421,7 +434,11 @@ func (p *Parser) ParseProgram() *Program {
 }
 
 func (p *Parser) parseCallExpression(left Expression) Expression {
-	exp := &CallExpression{Token: p.currToken}
+	leftPos := left.Position()
+	exp := &CallExpression{Token: p.currToken, position: util.Position{
+		StartLine: leftPos.StartLine,
+		StartCol:  leftPos.EndCol,
+	}}
 	if identExpr, ok := left.(*IdentifierExpression); ok {
 		exp.Function = identExpr
 	} else {
@@ -446,6 +463,8 @@ func (p *Parser) parseCallExpression(left Expression) Expression {
 			return nil
 		}
 	}
+	exp.Position().EndLine = p.currToken.Position.EndLine
+	exp.Position().EndCol = p.currToken.Position.EndCol
 	p.NextToken()
 
 	return exp
@@ -473,7 +492,10 @@ func (p *Parser) parseStatement() Statement {
 }
 
 func (p *Parser) parseStructStatement() Statement {
-	stmt := &StructStatement{Token: p.currToken}
+	stmt := &StructStatement{Token: p.currToken, position: util.Position{
+		StartLine: p.currToken.Position.StartLine,
+		StartCol:  p.currToken.Position.StartCol,
+	}}
 	p.NextToken()
 	if !p.currTokenIs(lexer.IDENTIFIER) {
 		p.Errors = append(p.Errors, "expected identifier after struct keyword")
@@ -519,7 +541,10 @@ func (p *Parser) parseStructStatement() Statement {
 }
 
 func (p *Parser) parseWhileStatement() Statement {
-	stmt := &WhileStatement{Token: p.currToken}
+	stmt := &WhileStatement{Token: p.currToken, position: util.Position{
+		StartLine: p.currToken.Position.StartLine,
+		StartCol:  p.currToken.Position.StartCol,
+	}}
 	p.NextToken()
 	cond := p.parseExpression(LOWEST)
 	stmt.Condition = cond
@@ -527,6 +552,8 @@ func (p *Parser) parseWhileStatement() Statement {
 		return nil
 	}
 	stmt.Body = p.parseBlockStatement()
+	stmt.position.EndLine = p.currToken.Position.EndLine
+	stmt.position.EndCol = p.currToken.Position.EndCol
 	if !p.expectCurr(lexer.RBRACE) {
 		return nil
 	}
@@ -534,7 +561,10 @@ func (p *Parser) parseWhileStatement() Statement {
 }
 
 func (p *Parser) parseIfStatement() Statement {
-	stmt := &IfStatement{Token: p.currToken}
+	stmt := &IfStatement{Token: p.currToken, position: util.Position{
+		StartLine: p.currToken.Position.StartLine,
+		StartCol:  p.currToken.Position.StartCol,
+	}}
 	p.NextToken() // past IF token
 	cond := p.parseExpression(LOWEST)
 	stmt.Condition = cond
@@ -542,6 +572,10 @@ func (p *Parser) parseIfStatement() Statement {
 		return nil
 	}
 	stmt.Success = p.parseBlockStatement()
+
+	stmt.Position().EndLine = p.currToken.Position.EndLine
+	stmt.Position().EndCol = p.currToken.Position.EndCol
+
 	if !p.expectCurr(lexer.RBRACE) {
 		return nil
 	}
@@ -554,6 +588,9 @@ func (p *Parser) parseIfStatement() Statement {
 		return nil
 	}
 	stmt.Fail = p.parseBlockStatement()
+
+	stmt.Position().EndLine = p.currToken.Position.EndLine
+	stmt.Position().EndCol = p.currToken.Position.EndCol
 	if !p.expectCurr(lexer.RBRACE) {
 		return nil
 	}
@@ -562,12 +599,17 @@ func (p *Parser) parseIfStatement() Statement {
 }
 
 func (p *Parser) parseImportStatement() Statement {
-	stmt := &ImportStatement{Token: p.currToken}
+	stmt := &ImportStatement{Token: p.currToken, position: util.Position{
+		StartLine: p.currToken.Position.StartLine,
+		StartCol:  p.currToken.Position.StartCol,
+	}}
 	p.NextToken()
 	if !p.currTokenIs(lexer.STRING) {
 		return nil
 	}
 	stmt.Path = p.currToken.Literal
+	stmt.position.EndLine = p.currToken.Position.EndLine
+	stmt.position.EndCol = p.currToken.Position.EndCol
 
 	return stmt
 }
@@ -609,7 +651,10 @@ func (p *Parser) getPointers(vt *lexer.VarType) {
 }
 
 func (p *Parser) parseFunctionStatement() Statement {
-	stmt := &FunctionStatement{Token: p.currToken}
+	stmt := &FunctionStatement{Token: p.currToken, position: util.Position{
+		StartLine: p.currToken.Position.StartLine,
+		StartCol:  p.currToken.Position.EndCol,
+	}}
 	p.NextToken()
 	if !p.currTokenIs(lexer.IDENTIFIER) {
 		p.Errors = append(p.Errors, "expected identifier after fnc keyword")
@@ -682,9 +727,12 @@ func (p *Parser) parseFunctionStatement() Statement {
 		return nil
 	}
 	stmt.Body = p.parseBlockStatement()
+	currPos := p.currToken.Position
 	if !p.expectCurr(lexer.RBRACE) {
 		return nil
 	}
+	stmt.Position().EndLine = currPos.EndLine
+	stmt.Position().EndCol = currPos.EndCol
 
 	return stmt
 }
