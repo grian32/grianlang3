@@ -54,7 +54,7 @@ type (
 type Parser struct {
 	lexer *lexer.Lexer
 
-	Errors []string
+	Errors []util.PositionError
 
 	currToken lexer.Token
 	peekToken lexer.Token
@@ -166,11 +166,11 @@ func (p *Parser) parseIntegerLiteral() Expression {
 	// code
 	value, err := strconv.ParseInt(p.currToken.Literal, 0, 64)
 	if err != nil {
-		p.Errors = append(p.Errors, fmt.Sprintf("could not parse %q as integer", p.currToken.Literal))
+		p.appendError(&p.currToken.Position, "could not parse %q as integer", p.currToken.Literal)
 	}
 	uvalue, err := strconv.ParseUint(p.currToken.Literal, 0, 64)
 	if err != nil {
-		p.Errors = append(p.Errors, fmt.Sprintf("could not parse %q as unsigned integer", p.currToken.Literal))
+		p.appendError(&p.currToken.Position, "could not parse %q as unsigned integer", p.currToken.Literal)
 	}
 
 	lit.Value = value
@@ -239,7 +239,7 @@ func (p *Parser) parseFloatLiteral() Expression {
 
 	value, err := strconv.ParseFloat(p.currToken.Literal, 32)
 	if err != nil {
-		p.Errors = append(p.Errors, fmt.Sprintf("could not parse %q as float", p.currToken.Literal))
+		p.appendError(&p.currToken.Position, fmt.Sprintf("could not parse %q as float", p.currToken.Literal))
 	}
 
 	lit.Value = float32(value)
@@ -287,7 +287,7 @@ func (p *Parser) parseStructInitialization(left Expression) Expression {
 	if ident, ok := left.(*IdentifierExpression); ok {
 		exp.Name = ident.Value
 	} else {
-		p.Errors = append(p.Errors, "expected identifier on lhs of struct init")
+		p.appendError(&p.currToken.Position, "expected identifier on lhs of struct init")
 		return nil
 	}
 	p.NextToken() // skip past :
@@ -345,7 +345,7 @@ func (p *Parser) parseAssignExpression(left Expression) Expression {
 		if infix, ok := left.(*InfixExpression); ok && infix.Operator == "." {
 			expr.Left = left
 		} else {
-			p.Errors = append(p.Errors, fmt.Sprintf("got %T on lhs of assignment, expected ident or deref", left))
+			p.appendError(left.Position(), fmt.Sprintf("got %T on lhs of assignment, expected ident or deref", left))
 		}
 	}
 	p.NextToken()
@@ -497,7 +497,7 @@ func (p *Parser) parseStructStatement() Statement {
 	}}
 	p.NextToken()
 	if !p.currTokenIs(lexer.IDENTIFIER) {
-		p.Errors = append(p.Errors, "expected identifier after struct keyword")
+		p.appendError(&p.currToken.Position, "expected identifier after struct keyword")
 		return nil
 	}
 	stmt.Name = p.currToken.Literal
@@ -519,13 +519,17 @@ func (p *Parser) parseStructStatement() Statement {
 			}
 			p.NextToken()
 		} else {
-			p.Errors = append(p.Errors, "expected type in struct definition")
+			pos := stmt.Position()
+			pos.CopyEnd(&p.currToken.Position)
+			p.appendError(pos, "expected type in struct definition")
 			return nil
 		}
 		p.getPointers(&vt)
 
 		if !p.currTokenIs(lexer.IDENTIFIER) {
-			p.Errors = append(p.Errors, "expected identifier after type in struct definition")
+			pos := stmt.Position()
+			pos.CopyEnd(&p.currToken.Position)
+			p.appendError(pos, "expected identifier after type in struct definition")
 			return nil
 		}
 		stmt.Types = append(stmt.Types, vt)
@@ -655,7 +659,7 @@ func (p *Parser) parseFunctionStatement() Statement {
 	}}
 	p.NextToken()
 	if !p.currTokenIs(lexer.IDENTIFIER) {
-		p.Errors = append(p.Errors, "expected identifier after fnc keyword")
+		p.appendError(&p.currToken.Position, "expected identifier after fnc keyword")
 		return nil
 	}
 	stmt.Name = &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
@@ -682,7 +686,7 @@ func (p *Parser) parseFunctionStatement() Statement {
 		p.NextToken()
 		p.getPointers(&paramType)
 		if !p.currTokenIs(lexer.IDENTIFIER) {
-			p.Errors = append(p.Errors, "expected identifier after type in function definition")
+			p.appendError(&p.currToken.Position, "expected identifier after type in function definition")
 			return nil
 		}
 		ident := &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
@@ -751,7 +755,7 @@ func (p *Parser) parseVarStatement() *DefStatement {
 	p.getPointers(&stmt.Type)
 
 	if !p.currTokenIs(lexer.IDENTIFIER) {
-		p.Errors = append(p.Errors, "expected identifier after type in def stmt")
+		p.appendError(&p.currToken.Position, "expected identifier after type in def stmt")
 		return nil
 	}
 
@@ -789,7 +793,7 @@ func (p *Parser) parseExpressionStatement() Statement {
 func (p *Parser) parseExpression(precendence byte) Expression {
 	prefix := p.prefixParseFns[p.currToken.Type]
 	if prefix == nil {
-		p.noPrefixParseFnError(p.currToken)
+		p.noPrefixParseFnError(p.currToken, &p.currToken.Position)
 		return nil
 	}
 	leftExp := prefix()
@@ -826,9 +830,8 @@ func (p *Parser) currPrecedence() byte {
 	return LOWEST
 }
 
-func (p *Parser) noPrefixParseFnError(t lexer.Token) {
-	msg := fmt.Sprintf("no prefix parse function for %s, peek=%s found", t.Type.String(), p.peekToken.Type.String())
-	p.Errors = append(p.Errors, msg)
+func (p *Parser) noPrefixParseFnError(t lexer.Token, pos *util.Position) {
+	p.appendError(pos, "no prefix parse function for %s, peek=%s found", t.Type.String(), p.peekToken.Type.String())
 }
 
 func (p *Parser) expectPeek(t lexer.TokenType) bool {
@@ -837,12 +840,12 @@ func (p *Parser) expectPeek(t lexer.TokenType) bool {
 		return true
 	}
 
-	p.peekError(t)
+	p.peekError(t, &p.peekToken.Position)
 	return false
 }
 
-func (p *Parser) peekError(t lexer.TokenType) {
-	p.Errors = append(p.Errors, fmt.Sprintf("expected next token to be %s, got %s instead", t, p.peekToken.Type))
+func (p *Parser) peekError(t lexer.TokenType, pos *util.Position) {
+	p.appendError(pos, "expected next token to be %s, got %s instead", t, p.peekToken.Type)
 }
 
 func (p *Parser) expectCurr(t lexer.TokenType) bool {
@@ -851,10 +854,17 @@ func (p *Parser) expectCurr(t lexer.TokenType) bool {
 		return true
 	}
 
-	p.currError(t)
+	p.currError(t, &p.currToken.Position)
 	return false
 }
 
-func (p *Parser) currError(t lexer.TokenType) {
-	p.Errors = append(p.Errors, fmt.Sprintf("expected curr token to be %s, got %s instead", t, p.peekToken.Type))
+func (p *Parser) currError(t lexer.TokenType, pos *util.Position) {
+	p.appendError(pos, "expected curr token to be %s, got %s instead", t, p.peekToken.Type)
+}
+
+func (p *Parser) appendError(pos *util.Position, msg string, v ...any) {
+	p.Errors = append(p.Errors, util.PositionError{
+		Position: pos,
+		Msg:      fmt.Sprintf(msg, v...),
+	})
 }

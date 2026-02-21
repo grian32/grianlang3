@@ -50,7 +50,7 @@ func main() {
 		}
 		if len(p.Errors) != 0 {
 			for _, err := range p.Errors {
-				log.Printf("%s: parser error: %s\n", file, err)
+				log.Printf("parser error: %s:%s\n", file, err.String())
 			}
 			fatalAndCleanup(*keepll, "%s: exiting after parser errors\n", file)
 		}
