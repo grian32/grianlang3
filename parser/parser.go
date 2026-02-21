@@ -511,6 +511,10 @@ func (p *Parser) parseStructStatement() Statement {
 		stmt.Names[p.currToken.Literal] = len(stmt.Types) - 1
 		p.NextToken()
 	}
+	stmt.Position().EndLine = p.currToken.Position.EndLine
+	stmt.Position().EndCol = p.currToken.Position.EndCol
+	p.NextToken()
+
 	return stmt
 }
 
