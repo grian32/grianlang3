@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"grianlang3/emitter"
 	"grianlang3/parser"
+	"grianlang3/util"
 	"strings"
 )
 
 type Checker struct {
 	importsFound map[string]struct{}
 	builtinNames map[string]map[string]struct{}
-	Errors       []string
+	Errors       []util.PositionError
 }
 
 func New() *Checker {
@@ -91,10 +92,13 @@ func (c *Checker) Check(node parser.Node) {
 		if _, ok := c.importsFound[moduleName]; (ok && moduleFound) || !moduleFound {
 			return
 		}
-		c.appendError("stdlib function '%s' used without stdlib module '%s' imported, did you mean to do this?\n", node.Function.Value, moduleName)
+		c.appendError(node.Position(), "stdlib function '%s' used without stdlib module '%s' imported, did you mean to do this?\n", node.Function.Value, moduleName)
 	}
 }
 
-func (c *Checker) appendError(msg string, args ...any) {
-	c.Errors = append(c.Errors, fmt.Sprintf(msg, args...))
+func (c *Checker) appendError(pos *util.Position, msg string, args ...any) {
+	c.Errors = append(c.Errors, util.PositionError{
+		Position: pos,
+		Msg:      fmt.Sprintf(msg, args...),
+	})
 }

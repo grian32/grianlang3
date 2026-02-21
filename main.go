@@ -36,6 +36,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+
 		l := lexer.New(string(input))
 		p := parser.New(l)
 		program := p.ParseProgram()
@@ -52,13 +53,14 @@ func main() {
 		c.Check(program)
 		if len(c.Errors) != 0 {
 			for _, err := range c.Errors {
-				log.Printf("%s: checker warning: %s\n", file, err)
+				log.Printf("%s: checker warning: %s\n", file, err.String())
 			}
 		}
 
 		e := emitter.New()
 		e.Emit(program)
 		llvmIr := e.Module()
+
 		fileName := fmt.Sprintf("./lltemp/%s.ll", file)
 		llFile, err := os.Create(fileName)
 		if err != nil {
@@ -85,6 +87,7 @@ func main() {
 		if err != nil {
 			fatalAndCleanup(*keepll, "failed to read %s from builtin fs: %v\n", mod, err)
 		}
+
 		fileName := fmt.Sprintf("./lltemp/%s", mod)
 		llFile, err := os.Create(fileName)
 		if err != nil {

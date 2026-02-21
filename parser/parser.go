@@ -436,7 +436,7 @@ func (p *Parser) parseCallExpression(left Expression) Expression {
 	leftPos := left.Position()
 	exp := &CallExpression{Token: p.currToken, position: util.Position{
 		StartLine: leftPos.StartLine,
-		StartCol:  leftPos.EndCol,
+		StartCol:  leftPos.StartCol,
 	}}
 	if identExpr, ok := left.(*IdentifierExpression); ok {
 		exp.Function = identExpr

@@ -1,20 +1,5 @@
-import "dbg"
-
-struct Hello {
-    int32 x
-    bool y
-}
-
 fnc main() -> int32 {
-    def Hello i = Hello:{ 4i32, true };
-    dbg_str("unmodified values");
-    dbg_i32(i.x);
-    dbg_bool(i.y);
-    dbg_str("modified values");
-    i.x = 7i32;
-    i.y = false;
-    dbg_i32(i.x);
-    dbg_bool(i.y);
+    def int32* arr = arr_new(sizeof int32);
 
     return 0i32;
 }
