@@ -245,7 +245,7 @@ func (p *Parser) parseFloatLiteral() Expression {
 	}
 
 	lit.Value = float32(value)
-	// NOTE: not skipping tokens? dubious? investigate later
+	p.NextToken()
 
 	return lit
 }
