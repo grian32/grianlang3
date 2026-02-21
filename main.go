@@ -88,15 +88,15 @@ func main() {
 		fileName := fmt.Sprintf("./lltemp/%s", mod)
 		llFile, err := os.Create(fileName)
 		if err != nil {
-			fatalAndCleanup(*keepll, "failed to create %s: %v\n", llFile, err)
+			fatalAndCleanup(*keepll, "failed to create %s: %v\n", llFile.Name(), err)
 		}
 		_, err = fmt.Fprintf(llFile, "%s", modText)
 		if err != nil {
-			fatalAndCleanup(*keepll, "failed to write %s: %v\n", llFile, err)
+			fatalAndCleanup(*keepll, "failed to write %s: %v\n", llFile.Name(), err)
 		}
 		err = llFile.Close()
 		if err != nil {
-			fatalAndCleanup(*keepll, "failed to close %s: %v\n", llFile, err)
+			fatalAndCleanup(*keepll, "failed to close %s: %v\n", llFile.Name(), err)
 		}
 		llFiles = append(llFiles, fileName)
 	}
@@ -124,5 +124,5 @@ func fatalAndCleanup(keepll bool, fmt string, v ...any) {
 			log.Fatal(err)
 		}
 	}
-	log.Fatalf(fmt, v)
+	log.Fatalf(fmt, v...)
 }
