@@ -239,7 +239,7 @@ func (p *Parser) parseFloatLiteral() Expression {
 
 	value, err := strconv.ParseFloat(p.currToken.Literal, 32)
 	if err != nil {
-		p.appendError(&p.currToken.Position, fmt.Sprintf("could not parse %q as float", p.currToken.Literal))
+		p.appendError(&p.currToken.Position, "could not parse %q as float", p.currToken.Literal)
 	}
 
 	lit.Value = float32(value)
@@ -344,7 +344,7 @@ func (p *Parser) parseAssignExpression(left Expression) Expression {
 		if infix, ok := left.(*InfixExpression); ok && infix.Operator == "." {
 			expr.Left = left
 		} else {
-			p.appendError(left.Position(), fmt.Sprintf("got %T on lhs of assignment, expected ident or deref", left))
+			p.appendError(left.Position(), "got %T on lhs of assignment, expected ident or deref", left)
 		}
 	}
 	p.NextToken()

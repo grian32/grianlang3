@@ -599,9 +599,13 @@ func runTests(t *testing.T, tests map[string]InputOutput) {
 			case <-timeout:
 				var trimmedErrors []string
 				if len(p.Errors) > 5 {
-					trimmedErrors = p.Errors[:5]
+					for _, err := range p.Errors[:5] {
+						trimmedErrors = append(trimmedErrors, err.String())
+					}
 				} else {
-					trimmedErrors = p.Errors
+					for _, err := range p.Errors {
+						trimmedErrors = append(trimmedErrors, err.String())
+					}
 				}
 				t.Fatalf("timed out after 1 second with parser errors: %v", trimmedErrors)
 			case <-done:
