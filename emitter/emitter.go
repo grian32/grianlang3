@@ -597,18 +597,16 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 
 			e.currBlock = thenBlock
 			saved := e.saveVariableState()
-			for _, s := range node.Success.Statements {
-				e.Emit(s)
+			if !e.emitBlockFindRet(node.Success) {
+				e.currBlock.NewBr(endBlock)
 			}
-			e.currBlock.NewBr(endBlock)
 			e.loadVariableState(saved)
 			e.currBlock = elseBlock
 
 			saved = e.saveVariableState()
-			for _, s := range node.Fail.Statements {
-				e.Emit(s)
+			if !e.emitBlockFindRet(node.Fail) {
+				e.currBlock.NewBr(endBlock)
 			}
-			e.currBlock.NewBr(endBlock)
 			e.currBlock = endBlock
 			e.loadVariableState(saved)
 		} else {
@@ -616,10 +614,9 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			e.currBlock = thenBlock
 
 			saved := e.saveVariableState()
-			for _, s := range node.Success.Statements {
-				e.Emit(s)
+			if !e.emitBlockFindRet(node.Success) {
+				e.currBlock.NewBr(endBlock)
 			}
-			e.currBlock.NewBr(endBlock)
 			e.currBlock = endBlock
 			e.loadVariableState(saved)
 		}
@@ -680,6 +677,18 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 	}
 
 	return nil, lexer.VarType{}
+}
+
+// this design is a little strange but it becomes very awkward to wire the blocks in this function specifically so i prefer to do it in the callers space and handle the not found return there
+func (e *Emitter) emitBlockFindRet(block *parser.BlockStatement) bool {
+	foundRet := false
+	for _, s := range block.Statements {
+		if _, ok := s.(*parser.ReturnStatement); ok {
+			foundRet = true
+		}
+		e.Emit(s)
+	}
+	return foundRet
 }
 
 // emitAdress literally only necessary because i need the vptr from ident expr, deref expr is same as e.emit lol

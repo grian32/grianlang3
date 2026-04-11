@@ -1,0 +1,7 @@
+import "dbg"
+
+fnc main() -> int32 {
+	dbg_str("Hello, World!\n");
+
+	return 0i32;
+}
