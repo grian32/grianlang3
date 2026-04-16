@@ -582,3 +582,21 @@ func (sie *StructInitializationExpression) Position() *util.Position {
 		EndCol:    lastValPos.EndCol,
 	}
 }
+
+type BreakStatement struct {
+	Token lexer.Token
+}
+
+func (b *BreakStatement) statementNode()           { /* noop */ }
+func (b *BreakStatement) TokenLiteral() string     { return b.Token.Literal }
+func (b *BreakStatement) String() string           { return b.Token.Literal }
+func (b *BreakStatement) Position() *util.Position { return &b.Token.Position }
+
+type ContinueStatement struct {
+	Token lexer.Token
+}
+
+func (c *ContinueStatement) statementNode()           { /* noop */ }
+func (c *ContinueStatement) TokenLiteral() string     { return c.Token.Literal }
+func (c *ContinueStatement) String() string           { return c.Token.Literal }
+func (c *ContinueStatement) Position() *util.Position { return &c.Token.Position }

@@ -484,6 +484,10 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseWhileStatement()
 	case lexer.STRUCT:
 		return p.parseStructStatement()
+	case lexer.BREAK:
+		return p.parseBreakStatement()
+	case lexer.CONTINUE:
+		return p.parseContinueStatement()
 	}
 
 	return p.parseExpressionStatement()
@@ -811,6 +815,20 @@ func (p *Parser) parseExpression(precendence byte) Expression {
 	}
 
 	return leftExp
+}
+
+func (p *Parser) parseBreakStatement() Statement {
+	stmt := &BreakStatement{Token: p.currToken}
+	p.NextToken()
+
+	return stmt
+}
+
+func (p *Parser) parseContinueStatement() Statement {
+	stmt := &ContinueStatement{Token: p.currToken}
+	p.NextToken()
+
+	return stmt
 }
 
 func (p *Parser) peekPrecedence() byte {

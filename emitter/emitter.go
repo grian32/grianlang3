@@ -41,6 +41,8 @@ type Emitter struct {
 	structMemberIndexes map[string]map[string]int
 	structMemberTypes   map[string][]lexer.VarType
 
+	whileStack []WhileLoopState
+
 	Errors []util.PositionError
 }
 
@@ -49,6 +51,11 @@ type VariableState struct {
 	variables  map[string]*ir.InstAlloca
 	varTypes   map[string]types.Type
 	varGlTypes map[string]lexer.VarType
+}
+
+type WhileLoopState struct {
+	condBlock *ir.Block
+	endBlock  *ir.Block
 }
 
 func New() *Emitter {
@@ -636,14 +643,37 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 
 		// emit while block
 		saved := e.saveVariableState()
+		e.whileStack = append(e.whileStack, WhileLoopState{condBlock: condBlock, endBlock: endBlock})
 		e.currBlock = whileBlock
 		for _, s := range node.Body.Statements {
 			e.Emit(s)
+			if e.currBlock.Term != nil {
+				break
+			}
 		}
-		e.currBlock.NewBr(condBlock)
+		if e.currBlock.Term == nil {
+			e.currBlock.NewBr(condBlock)
+		}
 		e.loadVariableState(saved)
+		e.whileStack = e.whileStack[:len(e.whileStack)-1]
 
 		e.currBlock = endBlock
+	case *parser.BreakStatement:
+		if len(e.whileStack) == 0 {
+			e.appendError(node.Position(), "break statement not allowed outside of while loop")
+			return nil, lexer.VarType{}
+		}
+
+		e.currBlock.NewBr(e.whileStack[len(e.whileStack)-1].endBlock)
+		return nil, lexer.VarType{}
+	case *parser.ContinueStatement:
+		if len(e.whileStack) == 0 {
+			e.appendError(node.Position(), "continue statement not allowed outside of while loop")
+			return nil, lexer.VarType{}
+		}
+
+		e.currBlock.NewBr(e.whileStack[len(e.whileStack)-1].condBlock)
+		return nil, lexer.VarType{}
 	case *parser.StructStatement:
 		typ := &types.StructType{
 			TypeName: node.Name,
@@ -681,14 +711,13 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 
 // this design is a little strange but it becomes very awkward to wire the blocks in this function specifically so i prefer to do it in the callers space and handle the not found return there
 func (e *Emitter) emitBlockFindRet(block *parser.BlockStatement) bool {
-	foundRet := false
 	for _, s := range block.Statements {
-		if _, ok := s.(*parser.ReturnStatement); ok {
-			foundRet = true
-		}
 		e.Emit(s)
+		if e.currBlock.Term != nil {
+			return true
+		}
 	}
-	return foundRet
+	return false
 }
 
 // emitAdress literally only necessary because i need the vptr from ident expr, deref expr is same as e.emit lol

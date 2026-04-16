@@ -313,6 +313,10 @@ func identLookup(lit string) (TokenType, BaseVarType) {
 		return WHILE, None
 	case "struct":
 		return STRUCT, None
+	case "break":
+		return BREAK, None
+	case "continue":
+		return CONTINUE, None
 	}
 
 	return IDENTIFIER, None

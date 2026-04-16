@@ -1,7 +1,6 @@
 # TODO
 
 Future wants:
-- `break` & `continue` on While Loops
 - Switch Statement
 - Global Variable Definitions - .data for non const, .rodata for const
 - LSP & Tree-Sitter - error reporting is there, honestly.

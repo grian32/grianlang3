@@ -53,6 +53,8 @@ const (
 	STRUCT
 	DOT
 	COLON
+	BREAK
+	CONTINUE
 	EOF
 )
 

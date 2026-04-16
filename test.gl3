@@ -1,17 +1,23 @@
 import "dbg"
 
-struct Y {
-    int32 y
-    bool x
-}
-
-struct X {
-    Y inner
-    int32 stuff
-}
-
 fnc main() -> int32 {
-    def X illegal = Y:{4i32, true} as X;
+    def int i = 0;
+    while true {
+        if i >= 6 {
+            if i == 6 {
+                i = i + 1;
+                dbg_str("continue path, incrementing");
+                continue;
+            }
+            dbg_str("break path, exiting");
+            break;
+        }
+        dbg_str("while path, incrementing");
+        i = i + 1;
+    }
+
+    dbg_str("exiting");
+
 
     return 0i32;
 }
