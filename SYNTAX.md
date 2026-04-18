@@ -262,6 +262,26 @@ while condition {
 }
 ```
 
+`break` and `continue` are statements for `while` loops:
+
+- `break` exits the nearest enclosing `while` loop.
+- `continue` skips to the next iteration of the nearest enclosing `while` loop.
+
+```gl3
+while i < 10i32 {
+    if i == 3i32 {
+        i = i + 1i32
+        continue
+    }
+
+    if i == 8i32 {
+        break
+    }
+
+    i = i + 1i32
+}
+```
+
 ## Functions
 
 Functions use the `fnc` keyword. Return type is always required.

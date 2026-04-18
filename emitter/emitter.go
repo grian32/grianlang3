@@ -34,8 +34,10 @@ type Emitter struct {
 
 	builtinModules []string
 
-	asmModuleImported bool
-	astFuncs          map[string]struct{}
+	asmModuleImported  bool
+	ioModuleImported   bool
+	emittingVarargArgs bool
+	astFuncs           map[string]struct{}
 
 	structTypes         map[string]*types.StructType
 	structMemberIndexes map[string]map[string]int
@@ -165,6 +167,9 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			return constant.NewInt(e.varTypeToLlvm(node.Type).(*types.IntType), int64(node.UValue)), node.Type
 		}
 	case *parser.BooleanExpression:
+		// if e.emittingVarargArgs {
+		// 	return constant.NewInt(types.I32, boolToI1(node.Value)), lexer.VarType{Base: lexer.Int32, Pointer: 0}
+		// }
 		return constant.NewInt(types.I1, boolToI1(node.Value)), lexer.VarType{Base: lexer.Bool, Pointer: 0}
 	case *parser.FloatLiteral:
 		return constant.NewFloat(types.Float, float64(node.Value)), lexer.VarType{Base: lexer.Float, Pointer: 0}
@@ -378,6 +383,9 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		}
 	case *parser.IdentifierExpression:
 		if param, ok := e.parameters[node.Value]; ok {
+			// if e.emittingVarargArgs && param.Typ == types.I1 {
+			// 	return e.currBlock.NewZExt(param, types.I32), lexer.VarType{Base: lexer.Int32, Pointer: 0}
+			// }
 			return param, e.parametersGlTypes[node.Value]
 		}
 
@@ -389,7 +397,11 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		if !ok {
 			e.appendError(node.Position(), "couldn't find variable type of name %s used in var ref", node.Value)
 		}
-		return e.currBlock.NewLoad(vType, vPtr), e.varGlTypes[node.Value]
+		load := e.currBlock.NewLoad(vType, vPtr)
+		// if e.emittingVarargArgs && vType == types.I1 {
+		// 	return e.currBlock.NewZExt(load, types.I32), lexer.VarType{Base: lexer.Int32, Pointer: 0}
+		// }
+		return load, e.varGlTypes[node.Value]
 	case *parser.CallExpression:
 		if _, ok := e.astFuncs[node.Function.Value]; ok && e.asmModuleImported {
 			// NOTE: maybe pass node directly to emitAsmIntrinsic ? computing .Position() when it might not be used seems wasteful
@@ -397,12 +409,18 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		}
 		var args []value.Value
 
+		if e.ioModuleImported && node.Function.Value == "print" {
+			e.emittingVarargArgs = true
+		}
+
 		for _, a := range node.Params {
 			val, _ := e.Emit(a)
 			args = append(args, val)
 		}
+		e.emittingVarargArgs = false
 
 		fncPtr, ok := e.functions[node.Function.Value]
+		e.emittingVarargArgs = false
 		if !ok {
 			e.appendError(node.Position(), "couldn't find function with name %s", node.Function.Value)
 		}
@@ -575,6 +593,9 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		} else if node.Path == "asm" {
 			e.asmModuleImported = true
 		} else {
+			if node.Path == "io" {
+				e.ioModuleImported = true
+			}
 			err := AddBuiltinModule(e, node.Path)
 			if err != nil {
 				e.appendError(node.Position(), "couldn't import builtin module %s", node.Path)

@@ -14,10 +14,11 @@ type BuiltinDef struct {
 	RetType   types.Type
 	RetGlType lexer.VarType
 	Params    []types.Type
+	Variadic  bool
 }
 
-func NewBuiltinDef(ret types.Type, glRet lexer.VarType, param ...types.Type) BuiltinDef {
-	return BuiltinDef{RetType: ret, RetGlType: glRet, Params: param}
+func NewBuiltinDef(ret types.Type, glRet lexer.VarType, variadic bool, param ...types.Type) BuiltinDef {
+	return BuiltinDef{RetType: ret, RetGlType: glRet, Params: param, Variadic: variadic}
 }
 
 func newVt(base lexer.BaseVarType) lexer.VarType {
@@ -30,30 +31,33 @@ func newVtPtr(base lexer.BaseVarType, ptr uint8) lexer.VarType {
 
 var builtinModules = map[string]map[string]BuiltinDef{
 	"dbg": {
-		"dbg_i64":   NewBuiltinDef(types.Void, newVt(lexer.Void), types.I64),
-		"dbg_i32":   NewBuiltinDef(types.Void, newVt(lexer.Void), types.I32),
-		"dbg_i16":   NewBuiltinDef(types.Void, newVt(lexer.Void), types.I16),
-		"dbg_i8":    NewBuiltinDef(types.Void, newVt(lexer.Void), types.I8),
-		"dbg_u64":   NewBuiltinDef(types.Void, newVt(lexer.Void), types.I64),
-		"dbg_u32":   NewBuiltinDef(types.Void, newVt(lexer.Void), types.I32),
-		"dbg_u16":   NewBuiltinDef(types.Void, newVt(lexer.Void), types.I16),
-		"dbg_u8":    NewBuiltinDef(types.Void, newVt(lexer.Void), types.I8),
-		"dbg_float": NewBuiltinDef(types.Void, newVt(lexer.Void), types.Float),
-		"dbg_bool":  NewBuiltinDef(types.Void, newVt(lexer.Void), types.I1),
-		"dbg_str":   NewBuiltinDef(types.Void, newVt(lexer.Void), types.I8Ptr),
-		"dbg_char":  NewBuiltinDef(types.Void, newVt(lexer.Void), types.I8),
+		"dbg_i64":   NewBuiltinDef(types.Void, newVt(lexer.Void), false, types.I64),
+		"dbg_i32":   NewBuiltinDef(types.Void, newVt(lexer.Void), false, types.I32),
+		"dbg_i16":   NewBuiltinDef(types.Void, newVt(lexer.Void), false, types.I16),
+		"dbg_i8":    NewBuiltinDef(types.Void, newVt(lexer.Void), false, types.I8),
+		"dbg_u64":   NewBuiltinDef(types.Void, newVt(lexer.Void), false, types.I64),
+		"dbg_u32":   NewBuiltinDef(types.Void, newVt(lexer.Void), false, types.I32),
+		"dbg_u16":   NewBuiltinDef(types.Void, newVt(lexer.Void), false, types.I16),
+		"dbg_u8":    NewBuiltinDef(types.Void, newVt(lexer.Void), false, types.I8),
+		"dbg_float": NewBuiltinDef(types.Void, newVt(lexer.Void), false, types.Float),
+		"dbg_bool":  NewBuiltinDef(types.Void, newVt(lexer.Void), false, types.I1),
+		"dbg_str":   NewBuiltinDef(types.Void, newVt(lexer.Void), false, types.I8Ptr),
+		"dbg_char":  NewBuiltinDef(types.Void, newVt(lexer.Void), false, types.I8),
 	},
 	//"malloc":    NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.Int8, 1), types.I64),
 	"arrays": {
-		"arr_new":  NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.None, 1), types.I64),
-		"arr_push": NewBuiltinDef(types.Void, newVt(lexer.None), types.I8Ptr, types.I8Ptr),
-		"arr_free": NewBuiltinDef(types.Void, newVt(lexer.None), types.I8Ptr),
+		"arr_new":  NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.None, 1), false, types.I64),
+		"arr_push": NewBuiltinDef(types.Void, newVt(lexer.None), false, types.I8Ptr, types.I8Ptr),
+		"arr_free": NewBuiltinDef(types.Void, newVt(lexer.None), false, types.I8Ptr),
 	},
 	"strings": {
-		"dynstr":     NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.Int8, 1), types.I8Ptr),
-		"str_append": NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.Int8, 1), types.I8Ptr, types.I8Ptr),
-		"str_len":    NewBuiltinDef(types.I64, newVt(lexer.Uint), types.I8Ptr),
-		"str_free":   NewBuiltinDef(types.Void, newVt(lexer.Void), types.I8Ptr),
+		"dynstr":     NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.Int8, 1), false, types.I8Ptr),
+		"str_append": NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.Int8, 1), false, types.I8Ptr, types.I8Ptr),
+		"str_len":    NewBuiltinDef(types.I64, newVt(lexer.Uint), false, types.I8Ptr),
+		"str_free":   NewBuiltinDef(types.Void, newVt(lexer.Void), false, types.I8Ptr),
+	},
+	"io": {
+		"print": NewBuiltinDef(types.Void, newVt(lexer.Void), true, types.I8Ptr),
 	},
 }
 
@@ -83,6 +87,7 @@ func AddBuiltinModule(e *Emitter, moduleName string) error {
 			params = append(params, ir.NewParam("", p))
 		}
 		fnc := e.m.NewFunc(name, typing.RetType, params...)
+		fnc.Sig.Variadic = typing.Variadic
 		e.functions[name] = fnc
 		e.functionGlReturnTypes[name] = typing.RetGlType
 	}

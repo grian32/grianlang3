@@ -1,23 +1,12 @@
-import "dbg"
+import "io"
 
 fnc main() -> int32 {
-    def int i = 0;
-    while true {
-        if i >= 6 {
-            if i == 6 {
-                i = i + 1;
-                dbg_str("continue path, incrementing");
-                continue;
-            }
-            dbg_str("break path, exiting");
-            break;
-        }
-        dbg_str("while path, incrementing");
-        i = i + 1;
-    }
+    def bool x = true;
+    def int32 y = -7200i32;
+    def int8 yy = 4i8;
+    def int16 w = 4i16;
+    def int l = 999999999999i64;
 
-    dbg_str("exiting");
-
-
+    print("hi %b, %d, %fd, %y, %fy, %w, %fw, %l, %fl", x, y, y, yy, yy, w, w, l, l);
     return 0i32;
 }

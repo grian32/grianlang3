@@ -1,5 +1,7 @@
 #!/bin/bash
+cd builtins
+./buildtollvm.sh
+cd ..
 go build
-./grianlang3 test.gl3
+./grianlang3 --keepll test.gl3
 ./out
-rm -rf lltemp
