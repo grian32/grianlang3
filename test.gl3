@@ -2,11 +2,19 @@ import "io"
 
 fnc main() -> int32 {
     def bool x = true;
+    def char c = 'h';
+    def char* s = "hello";
     def int32 y = -7200i32;
     def int8 yy = 4i8;
     def int16 w = 4i16;
     def int l = 999999999999i64;
+    def uint32 uy = 7200u32;
+    def uint8 uyy = 4u8;
+    def uint16 uw = 4u16;
+    def uint ul = 999999999999u64;
 
-    print("hi %b, %d, %fd, %y, %fy, %w, %fw, %l, %fl", x, y, y, yy, yy, w, w, l, l);
+    print("signed %d, %fd, %y, %fy, %w, %fw, %l, %fl", y, y, yy, yy, w, w, l, l);
+    print("unsigned %ud, %fud, %uy, %fuy, %uw, %fuw, %ul, %ful", uy, uy, uyy, uyy, uw, uw, ul, ul);
+    print("others %b, %c, %s", x, c, s);
     return 0i32;
 }
