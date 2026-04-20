@@ -100,6 +100,10 @@ func main() {
 	}
 
 	for mod, _ := range builtinModules {
+		// kinda dodgy fix but realistically its going to be one or two modules that vendor c stuff directly so no point bothering
+		if mod == "ralloc.ll" {
+			continue
+		}
 		modText, err := builtinFs.ReadFile(fmt.Sprintf("builtins/%s", mod))
 		if err != nil {
 			fatalAndCleanup(*keepll, "failed to read %s from builtin fs: %v\n", mod, err)

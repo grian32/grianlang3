@@ -60,6 +60,11 @@ var builtinModules = map[string]map[string]BuiltinDef{
 		"print":   NewBuiltinDef(types.Void, newVt(lexer.Void), true, types.I8Ptr),
 		"println": NewBuiltinDef(types.Void, newVt(lexer.Void), true, types.I8Ptr),
 	},
+	"ralloc": {
+		"malloc": NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.Int8, 1), false, types.I64),
+		"calloc": NewBuiltinDef(types.I8Ptr, newVtPtr(lexer.Int8, 1), false, types.I64, types.I64),
+		"free":   NewBuiltinDef(types.Void, newVt(lexer.Void), false, types.I8Ptr),
+	},
 }
 
 func GetBuiltinNames() map[string]map[string]struct{} {

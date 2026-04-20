@@ -155,6 +155,48 @@ fnc main() -> int32 {
 | Dynamic     | `dynstr()`             | Yes           |
 | Dynamic     | `str_append()`         | Yes           |
 
+## ralloc - Raw Allocation
+
+Low-level heap allocation functions that vendor C's `malloc`, `calloc`, and `free`.
+
+### Functions
+
+| Function               | Parameters                     | Returns | Description |
+|------------------------|--------------------------------|---------|-------------|
+| `malloc(size)`         | int (bytes)                    | void*   | Allocate `size` bytes (uninitialized) |
+| `calloc(count, size)`  | int (count), int (bytes each)  | void*   | Allocate `count * size` bytes, zero-initialized |
+| `free(ptr)`            | void*                          | none    | Free memory previously allocated by `malloc`/`calloc` |
+
+### Usage
+
+```gl3
+import "ralloc"
+
+fnc main() -> int32 {
+    def int count = 4
+
+    // malloc: allocate raw bytes, then cast to a typed pointer
+    def int32* values = malloc((sizeof int32) * count) as int32*
+    values[0] = 10i32
+    values[1] = 20i32
+
+    // calloc: same allocation shape, but zero-initialized
+    def int32* zeros = calloc(count, sizeof int32) as int32*
+    zeros[2] = 7i32
+
+    free(values)
+    free(zeros)
+
+    return 0i32
+}
+```
+
+### Notes
+
+- `ralloc` is intentionally low-level and does not track element counts or types.
+- Always cast returned `void*` to the pointer type you want to use.
+- Pair every successful `malloc`/`calloc` with exactly one `free`.
+
 ## io - Formatted Output
 
 Formatted output helpers for writing text to standard output.

@@ -1,20 +1,21 @@
+import "ralloc"
 import "io"
 
 fnc main() -> int32 {
-    def bool x = true;
-    def char c = 'h';
-    def char* s = "hello";
-    def int32 y = -7200i32;
-    def int8 yy = 4i8;
-    def int16 w = 4i16;
-    def int l = 999999999999i64;
-    def uint32 uy = 7200u32;
-    def uint8 uyy = 4u8;
-    def uint16 uw = 4u16;
-    def uint ul = 999999999999u64;
+    def int* arr = malloc(8 * 4) as int*;
 
-    print("signed %d, %fd, %y, %fy, %w, %fw, %l, %fl\n", y, y, yy, yy, w, w, l, l);
-    print("unsigned %ud, %fud, %uy, %fuy, %uw, %fuw, %ul, %ful\n", uy, uy, uyy, uyy, uw, uw, ul, ul);
-    println("others %b, %c, %s", x, c, s);
+    arr[0] = 0;
+    arr[1] = 1;
+    arr[2] = 2;
+    arr[3] = 3;
+
+    println("%l, %l, %l, %l", arr[0], arr[1], arr[2], arr[3]);
+
+    def int* crr = calloc(4, 8) as int*;
+    println("%l, %l, %l, %l", crr[0], crr[1], crr[2], crr[3]);
+
+    free(arr);
+    free(crr);
+
     return 0i32;
 }
