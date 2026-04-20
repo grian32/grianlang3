@@ -1,21 +1,9 @@
-import "ralloc"
 import "io"
 
+global int x = 3
+
 fnc main() -> int32 {
-    def int* arr = malloc(8 * 4) as int*;
-
-    arr[0] = 0;
-    arr[1] = 1;
-    arr[2] = 2;
-    arr[3] = 3;
-
-    println("%l, %l, %l, %l", arr[0], arr[1], arr[2], arr[3]);
-
-    def int* crr = calloc(4, 8) as int*;
-    println("%l, %l, %l, %l", crr[0], crr[1], crr[2], crr[3]);
-
-    free(arr);
-    free(crr);
+    println("%l", x);
 
     return 0i32;
 }

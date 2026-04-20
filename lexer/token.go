@@ -55,6 +55,7 @@ const (
 	COLON
 	BREAK
 	CONTINUE
+	GLOBAL
 	EOF
 )
 

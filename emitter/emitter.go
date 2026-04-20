@@ -22,6 +22,7 @@ type Emitter struct {
 
 	// var, vartypes, params get reset after each function is emitted.
 	variables         map[string]*ir.InstAlloca
+	globals           map[string]*ir.Global
 	varTypes          map[string]types.Type
 	varGlTypes        map[string]lexer.VarType
 	parameters        map[string]*ir.Param
@@ -62,6 +63,7 @@ type WhileLoopState struct {
 
 func New() *Emitter {
 	e := &Emitter{m: ir.NewModule()}
+	e.globals = make(map[string]*ir.Global)
 	e.variables = make(map[string]*ir.InstAlloca)
 	e.varTypes = make(map[string]types.Type)
 	e.functions = make(map[string]*ir.Func)
@@ -335,6 +337,21 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		lt := e.varTypeToLlvm(node.Type)
 		right, vt := e.Emit(node.Right)
 
+		if node.Global {
+			vPtr := e.m.NewGlobal(node.Name.Value, lt)
+
+			if _, ok := right.(constant.Constant); !ok {
+				e.appendError(node.Position(), "global variable must be initialized with a constant value")
+			}
+			vPtr.Init = right.(constant.Constant)
+			vPtr.Immutable = false
+			e.globals[node.Name.Value] = vPtr
+			e.varTypes[node.Name.Value] = lt
+			e.varGlTypes[node.Name.Value] = vt
+
+			return right, vt
+		}
+
 		vPtr := e.currBlock.NewAlloca(lt)
 		e.variables[node.Name.Value] = vPtr
 		e.varTypes[node.Name.Value] = lt
@@ -343,11 +360,16 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		return right, vt
 	case *parser.AssignmentExpression:
 		if ident, ok := node.Left.(*parser.IdentifierExpression); ok {
+			right, vt := e.Emit(node.Right)
+			if global, ok := e.globals[ident.Value]; ok {
+				e.currBlock.NewStore(right, global)
+				return right, vt
+			}
+
 			vPtr, ok := e.variables[ident.Value]
 			if !ok {
 				e.appendError(node.Position(), "couldn't find variable of name %s used in var assignment", ident.Value)
 			}
-			right, vt := e.Emit(node.Right)
 			e.currBlock.NewStore(right, vPtr)
 			return right, vt
 		} else if _, ok := node.Left.(*parser.DereferenceExpression); ok {
@@ -387,6 +409,10 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			// 	return e.currBlock.NewZExt(param, types.I32), lexer.VarType{Base: lexer.Int32, Pointer: 0}
 			// }
 			return param, e.parametersGlTypes[node.Value]
+		}
+
+		if global, ok := e.globals[node.Value]; ok {
+			return e.currBlock.NewLoad(e.varTypes[node.Value], global), e.varGlTypes[node.Value]
 		}
 
 		vPtr, ok := e.variables[node.Value]

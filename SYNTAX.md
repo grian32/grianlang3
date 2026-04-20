@@ -15,6 +15,8 @@ def int32 x = 10i32  // inline comment
 
 Semicolons are optional statement terminators. They may be omitted entirely.
 
+Global variable definitions are not statement terminators and therefore cannot end with `;`.
+
 ```gl3
 def int32 x = 10i32
 def int32 y = 20i32
@@ -164,6 +166,17 @@ Pointers:
 def int x = 10
 def int* ptr = &x
 ```
+
+### Global Variable Declarations
+
+Global variables are declared with `global`, using the same form as `def` (`type`, name, and initializer).
+
+```gl3
+global int32 max_items = 128i32
+global char* app_name = "grianlang"
+```
+
+> **Note**: Global variable definitions are top-level declarations outside functions, so they cannot end with `;`.
 
 ## Assignment
 
@@ -369,8 +382,9 @@ Typical structure:
 
 1. Import statements
 2. Struct definitions
-3. Function definitions
-4. `main` function returning `int32`
+3. Global variable definitions
+4. Function definitions
+5. `main` function returning `int32`
 
 ```gl3
 import "arrays"
@@ -378,6 +392,8 @@ import "arrays"
 struct Item {
     int32 id
 }
+
+global int32 default_id = 1i32
 
 fnc create_item(int32 id) -> Item {
     return Item{ id }

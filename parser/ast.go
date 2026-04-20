@@ -141,15 +141,19 @@ func (ie *InfixExpression) Position() *util.Position {
 }
 
 type DefStatement struct {
-	Token lexer.Token
-	Name  *IdentifierExpression
-	Type  lexer.VarType
-	Right Expression
+	Token  lexer.Token
+	Name   *IdentifierExpression
+	Type   lexer.VarType
+	Right  Expression
+	Global bool
 }
 
 func (ds *DefStatement) statementNode()       { /* noop */ }
 func (ds *DefStatement) TokenLiteral() string { return ds.Token.Literal }
 func (ds *DefStatement) String() string {
+	if ds.Global {
+		return "global " + ds.Type.String() + " " + ds.Name.String() + " = " + ds.Right.String()
+	}
 	return "def " + ds.Type.String() + " " + ds.Name.String() + " = " + ds.Right.String()
 }
 func (ds *DefStatement) Position() *util.Position {

@@ -5,5 +5,4 @@ Future wants:
 - Global Variable Definitions - .data for non const, .rodata for const
 - LSP & Tree-Sitter - error reporting is there, honestly.
 - "arenas" std module
-- "calloc" std module - links malloc, free, from c, read as "c's allocation"
 - Extend checker to handle more cases for better error msgs, basic type checking, etc.

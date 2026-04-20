@@ -104,6 +104,38 @@ func TestDefStatement(t *testing.T) {
 			"def char*** x = \"hello\"",
 			"def Char*** x = \"hello\000\";",
 		},
+		"global int def": {
+			"global int x = 7",
+			"global Int x = 7(Int);",
+		},
+		"global int32 def": {
+			"global int32 x = 7i32",
+			"global Int32 x = 7(Int32);",
+		},
+		"global uint32 def": {
+			"global uint32 x = 7u32",
+			"global Uint32 x = 7(Uint32);",
+		},
+		"global float def": {
+			"global float x = 1.5",
+			"global Float x = 1.5(Float);",
+		},
+		"global bool def": {
+			"global bool x = true",
+			"global Bool x = true;",
+		},
+		"global char def": {
+			"global char x = 'a'",
+			"global Char x = 97(Int8);",
+		},
+		"global string def": {
+			"global char* x = \"hello\"",
+			"global Char* x = \"hello\000\";",
+		},
+		"global multi pointer": {
+			"global char*** x = \"hello\"",
+			"global Char*** x = \"hello\000\";",
+		},
 	}
 
 	runTests(t, tests)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"grianlang3/lexer"
 	"grianlang3/util"
+	"log"
 	"strconv"
 )
 
@@ -470,7 +471,7 @@ func (p *Parser) parseCallExpression(left Expression) Expression {
 
 func (p *Parser) parseStatement() Statement {
 	switch p.currToken.Type {
-	case lexer.DEF:
+	case lexer.DEF, lexer.GLOBAL:
 		return p.parseVarStatement()
 	case lexer.RETURN:
 		return p.parseReturnStatement()
@@ -743,6 +744,9 @@ func (p *Parser) parseFunctionStatement() Statement {
 
 func (p *Parser) parseVarStatement() *DefStatement {
 	stmt := &DefStatement{Token: p.currToken}
+	if p.currTokenIs(lexer.GLOBAL) {
+		stmt.Global = true
+	}
 	p.NextToken()
 	if p.currTokenIs(lexer.TYPE) {
 		stmt.Type = p.currToken.VarType
@@ -849,6 +853,8 @@ func (p *Parser) currPrecedence() byte {
 
 func (p *Parser) noPrefixParseFnError(t lexer.Token, pos *util.Position) {
 	p.appendError(pos, "no prefix parse function for %s, peek=%s found", t.Type.String(), p.peekToken.Type.String())
+	// to prevent inf loops
+	p.NextToken()
 }
 
 func (p *Parser) expectPeek(t lexer.TokenType) bool {
@@ -872,11 +878,14 @@ func (p *Parser) expectCurr(t lexer.TokenType) bool {
 	}
 
 	p.currError(t, &p.currToken.Position)
+	// advance so it can keep parsing instead of a loop or something
+	p.NextToken()
 	return false
 }
 
 func (p *Parser) currError(t lexer.TokenType, pos *util.Position) {
 	p.appendError(pos, "expected curr token to be %s, got %s instead", t, p.peekToken.Type)
+	log.Fatalf("cur error")
 }
 
 func (p *Parser) appendError(pos *util.Position, msg string, v ...any) {
