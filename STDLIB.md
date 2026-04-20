@@ -155,6 +155,55 @@ fnc main() -> int32 {
 | Dynamic     | `dynstr()`             | Yes           |
 | Dynamic     | `str_append()`         | Yes           |
 
+## io - Formatted Output
+
+Formatted output helpers for writing text to standard output.
+
+### Functions
+
+| Function            | Parameters                 | Returns |
+|---------------------|----------------------------|---------|
+| `print(fmt, ...)`   | char*, variadic arguments  | none    |
+| `println(fmt, ...)` | char*, variadic arguments  | none    |
+
+`print` writes formatted text. `println` does the same and appends a trailing newline.
+
+### Format Specifiers
+
+| Specifier | Description |
+|-----------|-------------|
+| `%b`      | bool (`true`/`false`) |
+| `%c`      | char |
+| `%s`      | string (`char*`) |
+| `%y`      | int8 |
+| `%w`      | int16 |
+| `%d`      | int32 |
+| `%l`      | int64 |
+| `%uy`     | uint8 |
+| `%uw`     | uint16 |
+| `%ud`     | uint32 |
+| `%ul`     | uint64 |
+| `%%`      | literal percent sign |
+
+Prefix integer specifiers with `f` to include the type suffix in output (for example, `%fd` prints `7i32`, while `%d` prints `7`).
+
+### Usage
+
+```gl3
+import "io"
+
+fnc main() -> int32 {
+    def int8 small = -5i8
+    def uint32 count = 42u32
+
+    print("value: %d, small: %fy, count: %fud", 123i32, small, count)
+    println(" done")
+    println("ok=%b, msg=%s", true, "hello")
+
+    return 0i32
+}
+```
+
 ## asm - Low-Level Operations
 
 Functions that generate LLVM IR directly for scenarios requiring precise control, such as OS development before a memory allocator is available.

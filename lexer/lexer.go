@@ -185,13 +185,30 @@ func (l *Lexer) NextToken() Token {
 }
 
 func (l *Lexer) readString() string {
-	startPos := l.pos
+	buf := make([]rune, 0, 16)
 
 	for l.ch != '"' {
+		if l.ch == '\\' {
+			l.readChar()
+			switch l.ch {
+			case 'n':
+				buf = append(buf, '\n')
+			case 't':
+				buf = append(buf, '\t')
+			case 'r':
+				buf = append(buf, '\r')
+			case '\\':
+				buf = append(buf, '\\')
+			case '"':
+				buf = append(buf, '"')
+			}
+		} else {
+			buf = append(buf, rune(l.ch))
+		}
 		l.readChar()
 	}
 
-	return l.input[startPos:l.pos]
+	return string(buf)
 }
 
 func (l *Lexer) readHexaInt() string {

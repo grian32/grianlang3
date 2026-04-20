@@ -13,8 +13,8 @@ fnc main() -> int32 {
     def uint16 uw = 4u16;
     def uint ul = 999999999999u64;
 
-    print("signed %d, %fd, %y, %fy, %w, %fw, %l, %fl", y, y, yy, yy, w, w, l, l);
-    print("unsigned %ud, %fud, %uy, %fuy, %uw, %fuw, %ul, %ful", uy, uy, uyy, uyy, uw, uw, ul, ul);
-    print("others %b, %c, %s", x, c, s);
+    print("signed %d, %fd, %y, %fy, %w, %fw, %l, %fl\n", y, y, yy, yy, w, w, l, l);
+    print("unsigned %ud, %fud, %uy, %fuy, %uw, %fuw, %ul, %ful\n", uy, uy, uyy, uyy, uw, uw, ul, ul);
+    println("others %b, %c, %s", x, c, s);
     return 0i32;
 }

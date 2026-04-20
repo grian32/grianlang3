@@ -90,10 +90,7 @@ const char* format_suffix(char width, bool is_unsigned) {
  * Examples: %fud = format specifier at the end, unsigned, 32-bit integer
  * Note: The order of the specifiers must be 'f', and then 'u', and then the width specifier
  */
-void print(const char* fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-
+void vprint(const char* fmt, va_list args) {
     while (*fmt) {
         if (*fmt != '%') {
             putchar(*fmt++);
@@ -178,8 +175,19 @@ void print(const char* fmt, ...) {
             fputs(format_suffix(spec.width, spec.is_unsigned), stdout);
         }
     }
+}
 
+void print(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vprint(fmt, args);
+    va_end(args);
+}
+
+void println(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vprint(fmt, args);
     putchar('\n');
-
     va_end(args);
 }

@@ -57,7 +57,8 @@ var builtinModules = map[string]map[string]BuiltinDef{
 		"str_free":   NewBuiltinDef(types.Void, newVt(lexer.Void), false, types.I8Ptr),
 	},
 	"io": {
-		"print": NewBuiltinDef(types.Void, newVt(lexer.Void), true, types.I8Ptr),
+		"print":   NewBuiltinDef(types.Void, newVt(lexer.Void), true, types.I8Ptr),
+		"println": NewBuiltinDef(types.Void, newVt(lexer.Void), true, types.I8Ptr),
 	},
 }
 
