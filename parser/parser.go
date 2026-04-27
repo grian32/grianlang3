@@ -718,7 +718,7 @@ func (p *Parser) parseFunctionStatement() Statement {
 	}
 	if p.currTokenIs(lexer.TYPE) {
 		stmt.Type = p.currToken.VarType
-	} else if p.peekTokenIs(lexer.IDENTIFIER) {
+	} else if p.currTokenIs(lexer.IDENTIFIER) {
 		stmt.Type = lexer.VarType{
 			IsStructType: true,
 			StructName:   p.currToken.Literal,

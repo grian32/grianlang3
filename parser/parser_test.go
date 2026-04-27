@@ -167,6 +167,15 @@ func TestFuncStatement(t *testing.T) {
 			"fnc greet() -> char* { \n return \"hi\"; \n }",
 			"fnc greet() -> Char* { return \"hi\000\" };",
 		},
+		"edge case": {
+			`fnc create_item(int32 id) -> Item {
+    if id < 0i32 {
+        return Item:{ default_id }
+    }
+    return Item:{ id }
+}`,
+			"fnc create_item(Int32 id) -> Item { if (id < 0(Int32)() { return Item:{ default_id } };return Item:{ id } };",
+		},
 	}
 
 	runTests(t, tests)
