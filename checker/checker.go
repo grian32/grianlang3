@@ -11,6 +11,7 @@ import (
 type Checker struct {
 	importsFound map[string]struct{}
 	builtinNames map[string]map[string]struct{}
+	constVars    map[string]struct{}
 	Errors       []util.PositionError
 }
 
@@ -18,6 +19,7 @@ func New() *Checker {
 	return &Checker{
 		builtinNames: emitter.GetBuiltinNames(),
 		importsFound: make(map[string]struct{}),
+		constVars:    make(map[string]struct{}),
 	}
 }
 
@@ -62,10 +64,18 @@ func (c *Checker) Check(node parser.Node) {
 		c.Check(node.Left)
 		c.Check(node.Right)
 	case *parser.DefStatement:
+		if node.Global && node.Constant {
+			fmt.Printf("%v\n", node)
+			c.constVars[node.Name.Value] = struct{}{}
+		}
 		c.Check(node.Right)
 	case *parser.PrefixExpression:
 		c.Check(node.Right)
 	case *parser.AssignmentExpression:
+		name := c.getIdentNameAssign(node.Left)
+		if _, ok := c.constVars[name]; ok {
+			c.appendError(node.Position(), "cannot assign to constant variable '%s'\n", name)
+		}
 		c.Check(node.Left)
 		c.Check(node.Right)
 	case *parser.StructInitializationExpression:
@@ -101,4 +111,25 @@ func (c *Checker) appendError(pos *util.Position, msg string, args ...any) {
 		Position: pos,
 		Msg:      fmt.Sprintf(msg, args...),
 	})
+}
+
+func (c *Checker) getIdentNameAssign(expr parser.Expression) string {
+	switch e := expr.(type) {
+	case *parser.IdentifierExpression:
+		return e.Value
+	case *parser.DereferenceExpression:
+		if vi, ok := e.Var.(*parser.IdentifierExpression); ok {
+			return vi.Value
+		} else if di, ok := e.Var.(*parser.DereferenceExpression); ok {
+			return c.getIdentNameAssign(di)
+		}
+	case *parser.InfixExpression:
+		if e.Operator == "." {
+			return c.getIdentNameAssign(e.Left)
+		}
+	default:
+		c.appendError(expr.Position(), "unknown node %T on lhs of assignment", expr)
+		return ""
+	}
+	return ""
 }

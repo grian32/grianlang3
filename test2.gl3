@@ -17,6 +17,7 @@ fnc create_item(int32 id) -> Item {
 }
 
 fnc main() -> int32 {
+    default_id = 733i32;
     def Item item = create_item(-1i32)
     println("%d", item.id)
     return 0i32
