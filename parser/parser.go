@@ -748,6 +748,15 @@ func (p *Parser) parseVarStatement() *DefStatement {
 		stmt.Global = true
 	}
 	p.NextToken()
+	if p.currTokenIs(lexer.CONST) {
+		if stmt.Global {
+			stmt.Constant = true
+			p.NextToken()
+		} else {
+			p.appendError(&p.currToken.Position, "const keyword can only be used with global variables")
+			return nil
+		}
+	}
 	if p.currTokenIs(lexer.TYPE) {
 		stmt.Type = p.currToken.VarType
 	} else if p.currTokenIs(lexer.IDENTIFIER) {

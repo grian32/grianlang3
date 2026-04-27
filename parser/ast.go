@@ -6,6 +6,7 @@ import (
 	"grianlang3/lexer"
 	"grianlang3/util"
 	"strconv"
+	"strings"
 )
 
 var zeroPos = util.Position{
@@ -141,20 +142,34 @@ func (ie *InfixExpression) Position() *util.Position {
 }
 
 type DefStatement struct {
-	Token  lexer.Token
-	Name   *IdentifierExpression
-	Type   lexer.VarType
-	Right  Expression
-	Global bool
+	Token    lexer.Token
+	Name     *IdentifierExpression
+	Type     lexer.VarType
+	Right    Expression
+	Global   bool
+	Constant bool
 }
 
 func (ds *DefStatement) statementNode()       { /* noop */ }
 func (ds *DefStatement) TokenLiteral() string { return ds.Token.Literal }
 func (ds *DefStatement) String() string {
+	var str strings.Builder
 	if ds.Global {
-		return "global " + ds.Type.String() + " " + ds.Name.String() + " = " + ds.Right.String()
+		str.WriteString("global ")
+		if ds.Constant {
+			str.WriteString("const ")
+		}
+	} else {
+		str.WriteString("def ")
 	}
-	return "def " + ds.Type.String() + " " + ds.Name.String() + " = " + ds.Right.String()
+
+	str.WriteString(ds.Type.String())
+	str.WriteRune(' ')
+	str.WriteString(ds.Name.String())
+	str.WriteString(" = ")
+	str.WriteString(ds.Right.String())
+
+	return str.String()
 }
 func (ds *DefStatement) Position() *util.Position {
 	tokenPos := ds.Token.Position

@@ -56,6 +56,7 @@ const (
 	BREAK
 	CONTINUE
 	GLOBAL
+	CONST
 	EOF
 )
 

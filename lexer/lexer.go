@@ -336,6 +336,8 @@ func identLookup(lit string) (TokenType, BaseVarType) {
 		return CONTINUE, None
 	case "global":
 		return GLOBAL, None
+	case "const":
+		return CONST, None
 	}
 
 	return IDENTIFIER, None

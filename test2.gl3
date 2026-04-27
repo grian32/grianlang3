@@ -1,5 +1,23 @@
-import "dbg"
+import "io"
 
-fnc displayFour() -> none {
-    dbg_i64(4);
+struct Item {
+    int32 id
+}
+
+global const int32 default_id = 79i32
+
+fnc create_item(int32 id) -> Item {
+    def Item ret = Item:{ 0i32 }
+    if id < 0i32 {
+        ret.id = default_id
+    } else {
+        ret.id = id
+    }
+    return ret
+}
+
+fnc main() -> int32 {
+    def Item item = create_item(-1i32)
+    println("%d", item.id)
+    return 0i32
 }

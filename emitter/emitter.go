@@ -344,7 +344,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 				e.appendError(node.Position(), "global variable must be initialized with a constant value")
 			}
 			vPtr.Init = right.(constant.Constant)
-			vPtr.Immutable = false
+			vPtr.Immutable = node.Constant
 			e.globals[node.Name.Value] = vPtr
 			e.varTypes[node.Name.Value] = lt
 			e.varGlTypes[node.Name.Value] = vt
