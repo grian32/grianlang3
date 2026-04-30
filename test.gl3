@@ -1,9 +1,7 @@
 import "io"
 
-global int x = 3
-
 fnc main() -> int32 {
-    println("%l", x);
+    println("%d %l", 4i32, 7, true);
 
     return 0i32;
 }

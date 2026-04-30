@@ -5,6 +5,7 @@ import (
 	"grianlang3/emitter"
 	"grianlang3/parser"
 	"grianlang3/util"
+	"regexp"
 	"strings"
 )
 
@@ -90,6 +91,11 @@ func (c *Checker) Check(node parser.Node) {
 		for _, arg := range node.Params {
 			c.Check(arg)
 		}
+
+		if _, ok := c.importsFound["io"]; ok && (node.Function.Value == "print" || node.Function.Value == "println") {
+			c.checkPrintArgs(node)
+		}
+
 		var moduleName string
 		moduleFound := false
 		for name, module := range c.builtinNames {
@@ -132,4 +138,29 @@ func (c *Checker) getIdentNameAssign(expr parser.Expression) string {
 		return ""
 	}
 	return ""
+}
+
+func (c *Checker) checkPrintArgs(node *parser.CallExpression) {
+	var fmtStr string
+	if s, ok := node.Params[0].(*parser.StringLiteral); ok {
+		fmtStr = s.Value
+	} else {
+		c.appendError(node.Position(), "first argument of print/ln function should be string literal")
+		return
+	}
+	r, _ := regexp.Compile("%(?:(?:b|c|s)|(?:(?:f|u|fu|)(?:y|w|d|l)))")
+	found := r.FindAllString(fmtStr, -1)
+	if len(found) != len(node.Params)-1 {
+		c.appendError(node.Position(), "print/ln function should have as many specifiers as arguments given")
+		return
+	}
+
+	// for i := range len(found) {
+	// 	specifier := found[i]
+	// 	arg := node.Params[i+1]
+	// 	switch specifier {
+	// 	case "%b":
+
+	// 	}
+	// }
 }
