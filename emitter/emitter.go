@@ -531,7 +531,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		return e.currBlock.NewLoad(ptrTy.ElemType, ptr), vt
 	case *parser.CastExpression:
 		src, lt := e.Emit(node.Expr)
-		if lt.IsStructType || node.Type.IsStructType {
+		if (lt.IsStructType && lt.Pointer == 0) || (node.Type.IsStructType && node.Type.Pointer == 0) {
 			e.appendError(node.Position(), "casts using struct types are disallowed")
 		}
 		srcType := src.Type()
