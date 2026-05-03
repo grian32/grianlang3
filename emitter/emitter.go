@@ -737,7 +737,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			TypeName: node.Name,
 		}
 		for _, t := range node.Types {
-			typ.Fields = append(typ.Fields, e.varTypeToLlvm(t))
+			typ.Fields = append(typ.Fields, e.varTypeToLlvmStructDefn(t, node.Name))
 		}
 		e.structTypes[node.Name] = typ
 		e.structMemberIndexes[node.Name] = node.Names
@@ -858,6 +858,48 @@ func (e *Emitter) loadVariableState(state *VariableState) {
 	e.variables = state.variables
 	e.varTypes = state.varTypes
 	e.varGlTypes = state.varGlTypes
+}
+
+func (e *Emitter) varTypeToLlvmStructDefn(vt lexer.VarType, currStructName string) types.Type {
+	// TODO: bit of dupe code here, not sure how to resolve? don't want to integrate the struct stuff into reg vartype resolver as its only for structs
+	var baseType types.Type
+	if vt.IsStructType {
+		find, ok := e.structTypes[vt.StructName]
+		if ok {
+			baseType = find
+		} else {
+			if currStructName == vt.StructName {
+				baseType = &types.StructType{TypeName: currStructName}
+			}
+		}
+	} else {
+		switch vt.Base {
+		case lexer.None:
+			baseType = nil
+		case lexer.Int, lexer.Uint:
+			baseType = types.I64
+		case lexer.Int32, lexer.Uint32:
+			baseType = types.I32
+		case lexer.Int8, lexer.Uint8, lexer.Char:
+			baseType = types.I8
+		case lexer.Int16, lexer.Uint16:
+			baseType = types.I16
+		case lexer.Void:
+			baseType = types.Void
+		case lexer.Bool:
+			baseType = types.I1
+		case lexer.Float:
+			baseType = types.Float
+		}
+	}
+
+	if baseType != nil {
+		for _ = range vt.Pointer {
+			baseType = &types.PointerType{ElemType: baseType}
+		}
+	}
+
+	return baseType
 }
 
 func (e *Emitter) varTypeToLlvm(vt lexer.VarType) types.Type {
