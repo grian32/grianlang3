@@ -1,7 +1,11 @@
 import "io"
 
-fnc main() -> int32 {
-    println("%d %l", 4i32, 7, true);
+struct A {
+    int32 x
+}
 
+fnc main() -> int32 {
+    def A a = A:{5i32};
+    print("%b", a.x);
     return 0i32;
 }
