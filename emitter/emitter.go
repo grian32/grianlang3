@@ -386,7 +386,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			}
 			left, leftVt := e.Emit(infix.Left)
 			right, _ := e.Emit(node.Right)
-			_, ok := e.structTypes[leftVt.StructName]
+			structType, ok := e.structTypes[leftVt.StructName]
 			if !ok {
 				e.appendError(node.Position(), "could not find struct with type %s", leftVt.StructName)
 			}
@@ -394,14 +394,25 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			if ident, ok := infix.Right.(*parser.IdentifierExpression); ok {
 				fieldName = ident.Value
 			}
-			fieldIdx := e.structMemberIndexes[leftVt.StructName][fieldName]
-			insert := e.currBlock.NewInsertValue(left, right, uint64(fieldIdx))
-			vPtr, ok := e.variables[name]
+			fieldIdx, ok := e.structMemberIndexes[leftVt.StructName][fieldName]
 			if !ok {
-				e.appendError(node.Position(), "could not find variable with name %s", name)
+				e.appendError(node.Position(), "couldn't find field %s on struct of type %s", fieldName, leftVt.StructName)
 			}
-			e.currBlock.NewStore(insert, vPtr)
-			return insert, leftVt
+			if leftVt.Pointer > 0 {
+				zero := constant.NewInt(types.I32, 0)
+				fieldIdxConst := constant.NewInt(types.I32, int64(fieldIdx))
+				gep := e.currBlock.NewGetElementPtr(structType, left, zero, fieldIdxConst)
+				e.currBlock.NewStore(right, gep)
+				return gep, leftVt
+			} else {
+				insert := e.currBlock.NewInsertValue(left, right, uint64(fieldIdx))
+				vPtr, ok := e.variables[name]
+				if !ok {
+					e.appendError(node.Position(), "could not find variable with name %s", name)
+				}
+				e.currBlock.NewStore(insert, vPtr)
+				return insert, leftVt
+			}
 		}
 	case *parser.IdentifierExpression:
 		if param, ok := e.parameters[node.Value]; ok {
