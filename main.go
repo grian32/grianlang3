@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 //go:embed builtins/*.ll
@@ -127,7 +128,11 @@ func main() {
 
 	llFiles = append(llFiles, "-o", "out")
 	if !*noexecbuild {
-		out, err := exec.Command("clang", llFiles...).CombinedOutput()
+		cmd := exec.Command("clang", llFiles...)
+		if *dbg {
+			fmt.Printf("executing: %s\n", strings.Join(cmd.Args, " "))
+		}
+		out, err := cmd.CombinedOutput()
 		if err != nil {
 			fmt.Printf("out in clang exec: %s\n", out)
 			fmt.Printf("err in clang exec: %v\n", err)
