@@ -1,11 +1,30 @@
 import "io"
+import "ralloc"
+import "strings"
 
-struct A {
-    int32 x
+struct Node {
+    char* name
+    Node* next
 }
 
 fnc main() -> int32 {
-    def A a = A:{5i32};
-    print("%b", a.x);
-    return 0i32;
+    def Node* a = malloc(sizeof Node) as Node*
+    def Node* b = malloc(sizeof Node) as Node*
+
+    a.name = dynstr("alice")
+    a.next = b
+    b.name = dynstr("bob")
+    b.next = (0 as Node*)
+
+    def Node* cur = a
+    while (cur as int) != 0 {
+        println("hello, %s", *cur.name)
+        cur = *cur.next
+    }
+
+    str_free(*a.name)
+    str_free(*b.name)
+    free(a)
+    free(b)
+    return 0i32
 }
