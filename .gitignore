@@ -7,3 +7,4 @@ grianlang3
 builtins/*.ll
 lltemp/*
 gl3
+*.gl3
