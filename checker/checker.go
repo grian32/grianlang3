@@ -11,19 +11,21 @@ import (
 )
 
 type Checker struct {
-	importsFound map[string]struct{}
-	builtinNames map[string]map[string]struct{}
-	constVars    map[string]struct{}
-	varTypes     map[string]lexer.VarType
-	Errors       []util.PositionError
+	importsFound     map[string]struct{}
+	builtinNames     map[string]map[string]struct{}
+	constVars        map[string]struct{}
+	varTypes         map[string]lexer.VarType
+	structFieldTypes map[string]map[string]lexer.VarType
+	Errors           []util.PositionError
 }
 
 func New() *Checker {
 	return &Checker{
-		builtinNames: emitter.GetBuiltinNames(),
-		importsFound: make(map[string]struct{}),
-		constVars:    make(map[string]struct{}),
-		varTypes:     make(map[string]lexer.VarType),
+		builtinNames:     emitter.GetBuiltinNames(),
+		importsFound:     make(map[string]struct{}),
+		constVars:        make(map[string]struct{}),
+		varTypes:         make(map[string]lexer.VarType),
+		structFieldTypes: make(map[string]map[string]lexer.VarType),
 	}
 }
 
@@ -113,6 +115,11 @@ func (c *Checker) Check(node parser.Node) {
 			return
 		}
 		c.appendError(node.Position(), "stdlib function '%s' used without stdlib module '%s' imported, did you mean to do this?\n", node.Function.Value, moduleName)
+	case *parser.StructStatement:
+		c.structFieldTypes[node.Name] = make(map[string]lexer.VarType)
+		for name, idx := range node.Names {
+			c.structFieldTypes[node.Name][name] = node.Types[idx]
+		}
 	}
 }
 
@@ -120,13 +127,6 @@ func (c *Checker) appendError(pos *util.Position, msg string, args ...any) {
 	c.Errors = append(c.Errors, util.PositionError{
 		Position: pos,
 		Msg:      fmt.Sprintf(msg, args...),
-	})
-}
-
-func (c *Checker) appendErrorRaw(pos *util.Position, msg string) {
-	c.Errors = append(c.Errors, util.PositionError{
-		Position: pos,
-		Msg:      msg,
 	})
 }
 
@@ -153,7 +153,7 @@ func (c *Checker) getIdentNameAssign(expr parser.Expression, error bool) string 
 	return ""
 }
 
-func (c *Checker) getIdentType(expr parser.Expression) (lexer.VarType, bool) {
+func (c *Checker) getVarType(expr parser.Expression) (lexer.VarType, bool) {
 	switch e := expr.(type) {
 	case *parser.IdentifierExpression:
 		vt, ok := c.varTypes[e.Value]
@@ -163,12 +163,30 @@ func (c *Checker) getIdentType(expr parser.Expression) (lexer.VarType, bool) {
 			vt, ok := c.varTypes[vi.Value]
 			return vt, ok
 		} else {
-			return c.getIdentType(e.Var)
+			return c.getVarType(e.Var)
 		}
 	case *parser.InfixExpression:
 		if e.Operator == "." {
-			return c.getIdentNameAssign(e.Left, error)
+			// NOTE: we assume this is correct, i haven't implemented checking at the time of writing but ehh, the X:{4i32}.a usecase is kinda dogshit and i'm not sure that's something i'd like to support.. it's not like structs have constructors or anything to make this something you'd want to do ..
+			vt, ok := c.varTypes[e.Left.(*parser.IdentifierExpression).Value]
+			if !ok || !vt.IsStructType {
+				return lexer.VarType{}, false
+			}
+			fieldTypes, ok := c.structFieldTypes[vt.StructName]
+			if !ok {
+				return lexer.VarType{}, false
+			}
+			ft, ok := fieldTypes[e.Right.(*parser.IdentifierExpression).Value]
+			return ft, ok
 		}
+	case *parser.BooleanExpression:
+		return lexer.VarType{Base: lexer.Bool}, true
+	case *parser.IntegerLiteral:
+		return e.Type, true
+	case *parser.StringLiteral:
+		return lexer.VarType{Base: lexer.Char, Pointer: 1}, true
+	case *parser.FloatLiteral:
+		return e.Type, true
 	}
 	return lexer.VarType{}, false
 }
@@ -193,15 +211,9 @@ func (c *Checker) checkPrintArgs(node *parser.CallExpression) {
 		arg := node.Params[i+1]
 		switch specifier {
 		case "%b":
-			if _, ok := arg.(*parser.BooleanExpression); !ok {
-				identName := c.getIdentNameAssign(arg, false)
-				vt, ok := c.varTypes[identName]
-				// TODO: maybe some better way to handle this?
-				var errMsg string = fmt.Sprintf("printf arg %d with specifier %%b isnt't bool, has type: %T", i, arg)
-				if ok && (vt.Base != lexer.Bool || vt.Pointer > 0) {
-					errMsg = fmt.Sprintf("printf arg %d with specifier %%b isnt't variable with type bool, has type: %s", i, vt.String())
-				}
-				c.appendErrorRaw(node.Position(), errMsg)
+			typ, ok := c.getVarType(arg)
+			if !ok || typ.Base != lexer.Bool || typ.Pointer > 0 {
+				c.appendError(node.Position(), "printf arg %d with specifier %%b isnt't bool, has type: %s", i, typ.String())
 			}
 		}
 	}
