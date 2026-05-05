@@ -6,3 +6,4 @@ array.o
 grianlang3
 builtins/*.ll
 lltemp/*
+gl3

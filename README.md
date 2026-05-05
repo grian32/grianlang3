@@ -14,6 +14,26 @@ GL3 makes deliberate design choices that differ from many modern languages:
 
 The compiler produces LLVM IR which is then compiled to a native executable using `clang`. Clang is required for a full compilation pipeline.
 
+### Requirements
+
+- Go >=1.25.5
+- Clang (tested with version 22.1.1)
+
+### Building the compiler
+
+```bash
+make
+```
+
+This compiles the stdlib builtin modules to LLVM IR and builds the `gl3` compiler binary. You can also cleanup any build files using `make clean`
+
+### Compile & run a GL3 Program
+
+```bash
+./gl3 input.gl3 -o output
+./output
+```
+
 ### Command Line Flags
 
 | Flag            | Description                                                                                  |
