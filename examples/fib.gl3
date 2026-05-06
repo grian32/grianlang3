@@ -1,4 +1,4 @@
-import "dbg"
+import "io"
 
 fnc fib(int32 n) -> int32 {
 	if n <= 1i32 {
@@ -10,7 +10,7 @@ fnc fib(int32 n) -> int32 {
 fnc main() -> int32 {
     def int32 i = 0i32;
     while i < 10i32 {
-        dbg_i32(fib(i));
+        print("%d=%d\n", i, fib(i));
         i = i + 1i32;
     }
 
