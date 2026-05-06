@@ -129,9 +129,9 @@ func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
 		if opts.Dbg {
 			fmt.Printf("executing: %s\n", strings.Join(cmd.Args, " "))
 		}
-		_, err := cmd.CombinedOutput()
+		out, err := cmd.CombinedOutput()
 		if err != nil {
-			return err
+			return fmt.Errorf("error in clang exec, out: %s, err: %w", out, err)
 		}
 	}
 	if !opts.KeepLL {
