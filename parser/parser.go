@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"grianlang3/lexer"
 	"grianlang3/util"
-	"log"
 	"strconv"
 )
 
@@ -634,9 +633,13 @@ func (p *Parser) parseBlockStatement() *BlockStatement {
 
 	for !p.currTokenIs(lexer.RBRACE) {
 		stmt := p.parseStatement()
-		if stmt != nil {
-			bs.Statements = append(bs.Statements, stmt)
+		if stmt == nil {
+			break
 		}
+		if es, ok := stmt.(*ExpressionStatement); ok && es.Expression == nil {
+			break
+		}
+		bs.Statements = append(bs.Statements, stmt)
 		if p.currTokenIs(lexer.SEMICOLON) {
 			p.NextToken()
 		}
@@ -894,7 +897,6 @@ func (p *Parser) expectCurr(t lexer.TokenType) bool {
 
 func (p *Parser) currError(t lexer.TokenType, pos *util.Position) {
 	p.appendError(pos, "expected curr token to be %s, got %s instead", t, p.peekToken.Type)
-	log.Fatalf("cur error")
 }
 
 func (p *Parser) appendError(pos *util.Position, msg string, v ...any) {

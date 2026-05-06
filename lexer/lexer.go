@@ -188,6 +188,10 @@ func (l *Lexer) readString() string {
 	buf := make([]rune, 0, 16)
 
 	for l.ch != '"' {
+		// NOTE: no fucking clue why this results in an infinite loop with an unterminated string lit??, readchar should set it to 0 which != '"' and it should stop?? god knows
+		if l.ch == 0 {
+			break
+		}
 		if l.ch == '\\' {
 			l.readChar()
 			switch l.ch {

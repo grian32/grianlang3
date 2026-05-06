@@ -611,6 +611,54 @@ func TestStructStatement(t *testing.T) {
 	}
 }
 
+func TestUnterminatedStringLiteralDoesNotTimeoutRegression(t *testing.T) {
+	tests := map[string]string{
+		"parser nil expr stmt loop regression": `
+fnc main() -> int32 {
+				println("Hello, World!;
+`,
+		"lexer loop regression": `
+import "io"
+
+fnc main() -> int32 {
+	println("Hello, World!;
+
+	return 0i32;
+}
+`,
+	}
+
+	runTestCheckForTimeout(t, tests)
+}
+
+func runTestCheckForTimeout(t *testing.T, tests map[string]string) {
+	for name, input := range tests {
+		t.Run(name, func(t *testing.T) {
+			timeout := time.After(1 * time.Second)
+			done := make(chan bool)
+
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						t.Errorf("panicked: %v", r)
+					}
+					done <- true
+				}()
+
+				l := lexer.New(input)
+				p := New(l)
+				_ = p.ParseProgram()
+			}()
+
+			select {
+			case <-timeout:
+				t.Fatalf("timed out after 1 second while parsing input")
+			case <-done:
+			}
+		})
+	}
+}
+
 func runTests(t *testing.T, tests map[string]InputOutput) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
