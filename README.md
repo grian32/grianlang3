@@ -27,21 +27,6 @@ make
 
 This compiles the stdlib builtin modules to LLVM IR and builds the `gl3` compiler binary. You can also cleanup any build files using `make clean`
 
-### Compile & run a GL3 Program
-
-```bash
-./gl3 input.gl3 -o output
-./output
-```
-
-### Command Line Flags
-
-| Flag            | Description                                                                                  |
-| --------------- | -------------------------------------------------------------------------------------------- |
-| `--keepll`      | Preserve temporary `.ll` files for IR inspection                                             |
-| `--dbg`         | Print AST output for each parsed file, along with the executed clang command for compilation |
-| `--noexecbuild` | Generate IR only, do not invoke clang                                                        |
-
 ## Example Program
 
 ```gl3
@@ -77,7 +62,15 @@ fnc main() -> int32 {
 }
 ```
 
+### Compile & run the example
+
+```bash
+./gl3 build example.gl3 -o output
+./output
+```
+
 ## Documentation
 
 - [SYNTAX.md](SYNTAX.md) - Complete language syntax reference
 - [STDLIB.md](STDLIB.md) - Standard library documentation
+- [CLI.md](CLI.md) - Command line interface reference
