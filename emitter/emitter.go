@@ -762,6 +762,10 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			IsStructType: true,
 			StructName:   node.Name,
 		}
+	case *parser.ExternStructStatement:
+		typ := &types.StructType{TypeName: node.Name, Opaque: true}
+		e.structTypes[node.Name] = typ
+		e.m.NewTypeDef(node.Name, typ)
 	}
 
 	return nil, lexer.VarType{}

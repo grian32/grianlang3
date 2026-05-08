@@ -619,3 +619,14 @@ func (c *ContinueStatement) statementNode()           { /* noop */ }
 func (c *ContinueStatement) TokenLiteral() string     { return c.Token.Literal }
 func (c *ContinueStatement) String() string           { return c.Token.Literal }
 func (c *ContinueStatement) Position() *util.Position { return &c.Token.Position }
+
+type ExternStructStatement struct {
+	Token lexer.Token
+	Name string
+	position util.Position
+}
+
+func (e *ExternStructStatement) statementNode() { /* noop */}
+func (e *ExternStructStatement) TokenLiteral() string     { return e.Token.Literal }
+func (e *ExternStructStatement) String() string           { return "extern struct " + e.Name}
+func (e *ExternStructStatement) Position() *util.Position { return &e.position }

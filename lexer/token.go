@@ -57,6 +57,7 @@ const (
 	CONTINUE
 	GLOBAL
 	CONST
+	EXTERN
 	EOF
 )
 

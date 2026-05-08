@@ -342,6 +342,8 @@ func identLookup(lit string) (TokenType, BaseVarType) {
 		return GLOBAL, None
 	case "const":
 		return CONST, None
+	case "extern":
+		return EXTERN, None
 	}
 
 	return IDENTIFIER, None

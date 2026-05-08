@@ -488,9 +488,31 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseBreakStatement()
 	case lexer.CONTINUE:
 		return p.parseContinueStatement()
+	case lexer.EXTERN:
+		return p.parseExternStatement()
 	}
 
 	return p.parseExpressionStatement()
+}
+
+func (p *Parser) parseExternStatement() Statement {
+	stmt := &ExternStructStatement{Token: p.currToken, position: util.Position{
+		StartLine: p.currToken.Position.StartLine,
+		StartCol:  p.currToken.Position.StartCol,
+	}}
+	p.NextToken()
+	if !p.expectCurr(lexer.STRUCT) {
+		return nil
+	}
+
+	if !p.currTokenIs(lexer.IDENTIFIER) {
+		return nil
+	}
+	stmt.position.CopyEnd(&p.currToken.Position)
+	stmt.Name = p.currToken.Literal
+	p.NextToken()
+
+	return stmt
 }
 
 func (p *Parser) parseStructStatement() Statement {
