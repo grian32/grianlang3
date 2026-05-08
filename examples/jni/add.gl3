@@ -1,0 +1,6 @@
+extern struct JNIEnv
+extern struct _jobject
+
+fnc Java_Main_add(JNIEnv* env, _jobject* obj, int32 a, int32 b) -> int32 {
+    return a+b;
+}
