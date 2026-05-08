@@ -28,7 +28,7 @@ func main() {
 		Short: "Compile gl3 files to an executable",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := cli.RunBuildCmd(builtinFs, args, &buildOpts)
-			if err != nil {
+			if err != nil && !buildOpts.KeepLL {
 				if err := os.RemoveAll("./lltemp"); err != nil {
 					return err
 				}
@@ -39,6 +39,8 @@ func main() {
 	buildCmd.Flags().BoolVar(&buildOpts.Dbg, "dbg", false, "Prints out the AST for all compiled files, along with the `clang` command used for compilation")
 	buildCmd.Flags().BoolVar(&buildOpts.KeepLL, "keepll", false, "Saves the .ll files produced by compilation")
 	buildCmd.Flags().BoolVar(&buildOpts.NoExecBuild, "noexecbuild", false, "Does not execute the `clang` build command")
+	buildCmd.Flags().BoolVar(&buildOpts.Shared, "shared", false, "Compiles the code as a shared library")
+	buildCmd.Flags().StringVarP(&buildOpts.Output, "output", "o", "./out", "Changes the name of the output executable")
 
 	var exDefOpts cli.ExDefOpts
 	exDefCmd := &cobra.Command{

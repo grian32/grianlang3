@@ -17,6 +17,8 @@ type BuildOpts struct {
 	KeepLL      bool
 	Dbg         bool
 	NoExecBuild bool
+	Shared      bool
+	Output      string
 }
 
 func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
@@ -123,7 +125,10 @@ func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
 		llFiles = append(llFiles, fileName)
 	}
 
-	llFiles = append(llFiles, "-o", "out")
+	llFiles = append(llFiles, "-o", opts.Output)
+	if opts.Shared {
+		llFiles = append(llFiles, "-shared")
+	}
 	if !opts.NoExecBuild {
 		cmd := exec.Command("clang", llFiles...)
 		if opts.Dbg {

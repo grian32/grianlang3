@@ -2,7 +2,9 @@
 
 Future wants:
 
-- CLI Options like -O3/2/1, -o for output, etc..
+- Import Structs
+- Extern functions
+- CLI Options like -O3/2/1, etc..
 - CLI Tool for generating constants based on defines
 - Extern syntax for C that gets parsed by imports.go aswell
 - Introduce nullptr or something like it that gets automatically casted if assigned to a ptr type..
