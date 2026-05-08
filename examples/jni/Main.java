@@ -1,5 +1,6 @@
 public class Main {
 
+    // NOTE: you've gotta make in the root directory before you can run this
     public native int add(int a, int b);
 
     static {
