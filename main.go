@@ -37,8 +37,8 @@ func main() {
 		},
 	}
 	buildCmd.Flags().BoolVar(&buildOpts.Dbg, "dbg", false, "Prints out the AST for all compiled files, along with the `clang` command used for compilation")
-	buildCmd.Flags().BoolVar(&buildOpts.Dbg, "keepll", false, "Saves the .ll files produced by compilation")
-	buildCmd.Flags().BoolVar(&buildOpts.Dbg, "noexecbuild", false, "Does not execute the `clang` build command")
+	buildCmd.Flags().BoolVar(&buildOpts.KeepLL, "keepll", false, "Saves the .ll files produced by compilation")
+	buildCmd.Flags().BoolVar(&buildOpts.NoExecBuild, "noexecbuild", false, "Does not execute the `clang` build command")
 
 	var exDefOpts cli.ExDefOpts
 	exDefCmd := &cobra.Command{
