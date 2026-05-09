@@ -202,7 +202,8 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			if leftVt.Pointer > 0 {
 				zero := constant.NewInt(types.I32, 0)
 				fieldIdxConst := constant.NewInt(types.I32, int64(fieldIndex))
-				return e.currBlock.NewGetElementPtr(structType, left, zero, fieldIdxConst), fieldType
+				gep := e.currBlock.NewGetElementPtr(structType, left, zero, fieldIdxConst)
+				return e.currBlock.NewLoad(e.varTypeToLlvm(fieldType), gep), fieldType
 			} else {
 				return e.currBlock.NewExtractValue(left, uint64(fieldIndex)), fieldType
 			}
