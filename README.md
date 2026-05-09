@@ -51,11 +51,11 @@ fnc main() -> int32 {
     def Node* cur = a
     while (cur as int) != 0 {
         println("hello, %s", *cur.name)
-        cur = *cur.next
+        cur = cur.next
     }
 
-    str_free(*a.name)
-    str_free(*b.name)
+    str_free(a.name)
+    str_free(b.name)
     free(a)
     free(b)
     return 0i32
