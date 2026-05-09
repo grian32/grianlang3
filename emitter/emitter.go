@@ -313,7 +313,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 			}
 		}
 
-		e.appendError(node.Position(), "operator %s invalid for types %T(%s), %T(%s)", node.Operator, node.Left, node.Left.String(), node.Right, node.Right.String())
+		e.appendError(node.Position(), "operator %s invalid for types %s(%s), %s(%s)", node.Operator, leftVt.String(), node.Left.String(), rightVt.String(), node.Right.String())
 	case *parser.PrefixExpression:
 		switch node.Operator {
 		case "!":
@@ -617,7 +617,21 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 				e.appendError(node.Position(), "cannot find %s file described in import stmt", f)
 				return nil, lexer.VarType{}
 			}
-			declares := findDeclares(string(f))
+			declares, structDefns := findDeclares(string(f))
+
+			for _, d := range structDefns {
+				typ := &types.StructType{
+					TypeName: d.Name,
+				}
+				for _, t := range d.Fields {
+					typ.Fields = append(typ.Fields, e.varTypeToLlvmStructDefn(t, d.Name))
+				}
+				e.structTypes[d.Name] = typ
+				e.structMemberIndexes[d.Name] = d.FieldNames
+				e.structMemberTypes[d.Name] = d.Fields
+				e.m.NewTypeDef(d.Name, typ)
+			}
+
 			for _, d := range declares {
 				var params []*ir.Param
 				for _, p := range d.ParamTypes {
@@ -627,6 +641,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 				e.functions[d.Name] = fnc
 				e.functionGlReturnTypes[d.Name] = d.ReturnType
 			}
+
 		} else if node.Path == "asm" {
 			e.asmModuleImported = true
 		} else {

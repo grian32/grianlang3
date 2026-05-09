@@ -11,8 +11,15 @@ type Declare struct {
 	ParamTypes []lexer.VarType
 }
 
+type StructDefinition struct {
+	Name       string
+	Fields     []lexer.VarType
+	FieldNames map[string]int
+}
+
 type importParser struct {
-	declares []Declare
+	declares    []Declare
+	structDefns []StructDefinition
 }
 
 func (ip *importParser) findImports(node parser.Node) {
@@ -32,14 +39,21 @@ func (ip *importParser) findImports(node parser.Node) {
 			ReturnType: node.Type,
 			ParamTypes: paramTypes,
 		})
+	case *parser.StructStatement:
+		// this is kinda stupid but passing around the struct stmt is icky
+		ip.structDefns = append(ip.structDefns, StructDefinition{
+			Name:       node.Name,
+			Fields:     node.Types,
+			FieldNames: node.Names,
+		})
 	}
 }
 
-func findDeclares(file string) []Declare {
+func findDeclares(file string) ([]Declare, []StructDefinition) {
 	l := lexer.New(file)
 	p := parser.New(l)
 	program := p.ParseProgram()
 	ip := importParser{}
 	ip.findImports(program)
-	return ip.declares
+	return ip.declares, ip.structDefns
 }
