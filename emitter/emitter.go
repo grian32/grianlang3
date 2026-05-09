@@ -494,10 +494,10 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		}
 
 		if !foundRet {
-			if node.Type.Base == lexer.None && !node.Type.IsStructType && node.Type.Pointer == 0 {
+			if node.Type.Base == lexer.Void && !node.Type.IsStructType && node.Type.Pointer == 0 {
 				e.currBlock.NewRet(nil)
 			} else {
-				e.appendError(node.Position(), "missing return statement in non-void function")
+				e.appendError(node.Position(), "missing return statement in non-void function of type %s", node.Type)
 			}
 		}
 
