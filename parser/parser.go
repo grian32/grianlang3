@@ -151,17 +151,6 @@ func (p *Parser) parseStatement() Statement {
 	return p.parseExpressionStatement()
 }
 
-func (p *Parser) getPointers(vt *lexer.VarType) {
-	if !p.currTokenIs(lexer.ASTERISK) {
-		return
-	}
-
-	for p.currTokenIs(lexer.ASTERISK) {
-		vt.Pointer++
-		p.NextToken()
-	}
-}
-
 func (p *Parser) parseExpressionStatement() Statement {
 	stmt := &ExpressionStatement{Token: p.currToken}
 

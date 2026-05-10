@@ -42,24 +42,13 @@ func (p *Parser) parseStructStatement() Statement {
 	}
 	stmt.Names = make(map[string]int)
 	for !p.currTokenIs(lexer.RBRACE) {
-		var vt lexer.VarType
-
-		if p.currTokenIs(lexer.TYPE) {
-			vt = p.currToken.VarType
-			p.NextToken()
-		} else if p.currTokenIs(lexer.IDENTIFIER) {
-			vt = lexer.VarType{
-				IsStructType: true,
-				StructName:   p.currToken.Literal,
-			}
-			p.NextToken()
-		} else {
+		vt, err := p.parseType()
+		if err != nil {
 			pos := stmt.Position()
 			pos.CopyEnd(&p.currToken.Position)
 			p.appendError(pos, "expected type in struct definition")
 			return nil
 		}
-		p.getPointers(&vt)
 
 		if !p.currTokenIs(lexer.IDENTIFIER) {
 			pos := stmt.Position()
@@ -113,19 +102,11 @@ func (p *Parser) parseFunctionStatement() Statement {
 
 	// for empty arg list if it is rparen then it just stops immediately since we curr are on lparen
 	for !p.currTokenIs(lexer.RPAREN) {
-		var paramType lexer.VarType
-		if p.currTokenIs(lexer.TYPE) {
-			paramType = p.currToken.VarType
-		} else if p.currTokenIs(lexer.IDENTIFIER) {
-			paramType = lexer.VarType{
-				IsStructType: true,
-				StructName:   p.currToken.Literal,
-			}
-		} else {
+		paramType, err := p.parseType()
+		if err != nil {
+			p.appendError(&p.currToken.Position, "expected type in function definition paramaters")
 			return nil
 		}
-		p.NextToken()
-		p.getPointers(&paramType)
 		if !p.currTokenIs(lexer.IDENTIFIER) {
 			p.appendError(&p.currToken.Position, "expected identifier after type in function definition")
 			return nil
@@ -153,18 +134,13 @@ func (p *Parser) parseFunctionStatement() Statement {
 	if !p.expectCurr(lexer.ARROW) {
 		return nil
 	}
-	if p.currTokenIs(lexer.TYPE) {
-		stmt.Type = p.currToken.VarType
-	} else if p.currTokenIs(lexer.IDENTIFIER) {
-		stmt.Type = lexer.VarType{
-			IsStructType: true,
-			StructName:   p.currToken.Literal,
-		}
-	} else {
+	retType, err := p.parseType()
+	if err != nil {
+		stmt.Position().CopyEnd(&p.currToken.Position)
+		p.appendError(stmt.Position(), "expected return type after arrow in function decl")
 		return nil
 	}
-	p.NextToken()
-	p.getPointers(&stmt.Type)
+	stmt.Type = retType
 
 	if !p.expectCurr(lexer.LBRACE) {
 		return nil
@@ -194,18 +170,12 @@ func (p *Parser) parseVarStatement() *DefStatement {
 			return nil
 		}
 	}
-	if p.currTokenIs(lexer.TYPE) {
-		stmt.Type = p.currToken.VarType
-	} else if p.currTokenIs(lexer.IDENTIFIER) {
-		stmt.Type = lexer.VarType{
-			IsStructType: true,
-			StructName:   p.currToken.Literal,
-		}
-	} else {
+	vt, err := p.parseType()
+	if err != nil {
+		p.appendError(&p.currToken.Position, "expected type in def statement")
 		return nil
 	}
-	p.NextToken()
-	p.getPointers(&stmt.Type)
+	stmt.Type = vt
 
 	if !p.currTokenIs(lexer.IDENTIFIER) {
 		p.appendError(&p.currToken.Position, "expected identifier after type in def stmt")

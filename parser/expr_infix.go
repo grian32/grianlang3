@@ -27,19 +27,12 @@ func (p *Parser) parseCastExpression(left Expression) Expression {
 	expr.Expr = left
 
 	p.NextToken() // asvance past AS
-	var castType lexer.VarType
-	if p.currTokenIs(lexer.TYPE) {
-		castType = p.currToken.VarType
-	} else if p.currTokenIs(lexer.IDENTIFIER) {
-		castType = lexer.VarType{
-			IsStructType: true,
-			StructName:   p.currToken.Literal,
-		}
-	} else {
+	castType, err := p.parseType()
+	if err != nil {
+		expr.Position().CopyEnd(&p.currToken.Position)
+		p.appendError(&expr.position, "expected type after as token in cast expr")
 		return nil
 	}
-	p.NextToken() // advance past type/ident
-	p.getPointers(&castType)
 	expr.Type = castType
 	expr.Position().CopyEnd(&p.currToken.Position)
 

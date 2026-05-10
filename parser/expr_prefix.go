@@ -47,24 +47,16 @@ func (p *Parser) parseSizeofExpression() Expression {
 		StartLine: p.currToken.Position.StartLine,
 		StartCol:  p.currToken.Position.StartCol,
 	}}
-	var vt lexer.VarType
 	p.NextToken() // past sizeof
-	if p.currTokenIs(lexer.TYPE) {
-		vt = p.currToken.VarType
-	} else if p.currTokenIs(lexer.IDENTIFIER) {
-		vt = lexer.VarType{
-			IsStructType: true,
-			StructName:   p.currToken.Literal,
-		}
-	} else {
+	vt, err := p.parseType()
+	if err != nil {
+		expr.Position().CopyEnd(&p.currToken.Position)
+		p.appendError(&expr.position, "expected type after sizeof keyword")
 		return nil
 	}
-	p.NextToken() // past type/ident
-	p.getPointers(&vt)
 
 	expr.Type = vt
-	expr.Position().EndLine = p.currToken.Position.EndLine
-	expr.Position().EndCol = p.currToken.Position.EndCol
+	expr.Position().CopyEnd(&p.currToken.Position)
 
 	return expr
 }

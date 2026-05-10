@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"grianlang3/lexer"
 	"grianlang3/util"
@@ -71,4 +72,27 @@ func (p *Parser) peekTokenIs(tt lexer.TokenType) bool {
 
 func (p *Parser) currTokenIs(tt lexer.TokenType) bool {
 	return p.currToken.Type == tt
+}
+
+func (p *Parser) parseType() (lexer.VarType, error) {
+	var vt lexer.VarType
+	if p.currTokenIs(lexer.TYPE) {
+		vt = p.currToken.VarType
+	} else if p.currTokenIs(lexer.IDENTIFIER) {
+		vt.IsStructType = true
+		vt.StructName = p.currToken.Literal
+	} else {
+		return lexer.VarType{}, errors.New("expected type or identifier")
+	}
+	p.NextToken()
+	if !p.currTokenIs(lexer.ASTERISK) {
+		return vt, nil
+	}
+
+	for p.currTokenIs(lexer.ASTERISK) {
+		vt.Pointer++
+		p.NextToken()
+	}
+
+	return vt, nil
 }

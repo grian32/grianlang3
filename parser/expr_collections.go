@@ -6,14 +6,14 @@ func (p *Parser) parseArrayLiteral() Expression {
 	lit := &ArrayLiteral{Token: p.currToken}
 	// assumess curr = [
 	p.NextToken()
-	vt := p.currToken.VarType
-	p.getPointers(&vt)
-	if !p.expectPeek(lexer.SEMICOLON) {
+	vt, err := p.parseType()
+	if err != nil {
+		p.appendError(lit.Position(), "expected type after [ in array literal expr")
+	}
+	if !p.expectCurr(lexer.SEMICOLON) {
 		return nil
 	}
 	lit.Type = vt
-	p.NextToken()
-
 	lit.Items = []Expression{}
 
 	for !p.currTokenIs(lexer.RBRACKET) {
