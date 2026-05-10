@@ -96,16 +96,17 @@ func (p *Parser) parseType() (lexer.VarType, bool) {
 	return vt, true
 }
 
-func (p *Parser) parseTypedIdentifier() (lexer.VarType, *IdentifierExpression, bool) {
+// vt, ident, typeOk, identOk, its kinda messy on the user end with two bool but it leads to better rr msgs so its worth..
+func (p *Parser) parseTypedIdentifier() (lexer.VarType, *IdentifierExpression, bool, bool) {
 	vt, ok := p.parseType()
 	if !ok {
-		return lexer.VarType{}, nil, false
+		return lexer.VarType{}, nil, false, true
 	}
 	if !p.currTokenIs(lexer.IDENTIFIER) {
-		return lexer.VarType{}, nil, false
+		return lexer.VarType{}, nil, true, false
 	}
 	ident := &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
 	p.NextToken()
 
-	return vt, ident, true
+	return vt, ident, true, true
 }

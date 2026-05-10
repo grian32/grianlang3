@@ -42,11 +42,16 @@ func (p *Parser) parseStructStatement() Statement {
 	}
 	stmt.Names = make(map[string]int)
 	for !p.currTokenIs(lexer.RBRACE) {
-		vt, ident, ok := p.parseTypedIdentifier()
-		if !ok {
+		vt, ident, typeOk, identOk := p.parseTypedIdentifier()
+		if !typeOk || !identOk {
 			pos := stmt.Position()
 			pos.CopyEnd(&p.currToken.Position)
-			p.appendError(pos, "expected type in struct definition")
+			if !typeOk {
+				p.appendError(pos, "expected type in struct definition")
+			}
+			if !identOk {
+				p.appendError(pos, "expected identifer after typein struct definition")
+			}
 			return nil
 		}
 		stmt.Types = append(stmt.Types, vt)
@@ -94,9 +99,15 @@ func (p *Parser) parseFunctionStatement() Statement {
 
 	// for empty arg list if it is rparen then it just stops immediately since we curr are on lparen
 	for !p.currTokenIs(lexer.RPAREN) {
-		paramType, paramName, ok := p.parseTypedIdentifier()
-		if !ok {
-			p.appendError(&p.currToken.Position, "expected type in function definition paramaters")
+		paramType, paramName, typeOk, identOk := p.parseTypedIdentifier()
+		if !typeOk || !identOk {
+			stmt.Position().CopyEnd(&p.currToken.Position)
+			if !typeOk {
+				p.appendError(&p.currToken.Position, "expected type in function definition paramaters")
+			}
+			if !identOk {
+				p.appendError(&p.currToken.Position, "expected identifier after type in function definition paramaters")
+			}
 			return nil
 		}
 		param := FunctionParameter{
@@ -155,9 +166,13 @@ func (p *Parser) parseVarStatement() *DefStatement {
 			return nil
 		}
 	}
-	vt, name, ok := p.parseTypedIdentifier()
-	if !ok {
+	vt, name, typeOk, identOk := p.parseTypedIdentifier()
+	if !typeOk {
 		p.appendError(&p.currToken.Position, "expected type in def statement")
+		return nil
+	}
+	if !identOk {
+		p.appendError(&p.currToken.Position, "expected identifier after type in def statement")
 		return nil
 	}
 	stmt.Type = vt
