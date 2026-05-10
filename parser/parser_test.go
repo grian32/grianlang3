@@ -2,6 +2,7 @@ package parser
 
 import (
 	"grianlang3/lexer"
+	"strings"
 	"testing"
 	"time"
 )
@@ -509,6 +510,18 @@ func TestArrayLiteralExpression(t *testing.T) {
 			"[int32; 1i32, 2i32]",
 			"[Int32;1(Int32),2(Int32)];",
 		},
+		"pointer array": {
+			"[char**; x]",
+			"[Char**;x];",
+		},
+		"struct array": {
+			"[Player; current]",
+			"[Player;current];",
+		},
+		"struct pointer array": {
+			"[Player**; current]",
+			"[Player**;current];",
+		},
 		"empty array": {
 			"[uint8;]",
 			"[Uint8;];",
@@ -631,6 +644,50 @@ fnc main() -> int32 {
 	runTestCheckForTimeout(t, tests)
 }
 
+func TestTypedIdentifierErrorReporting(t *testing.T) {
+	tests := map[string]struct {
+		input       string
+		errorSubstr string
+	}{
+		"def missing name": {
+			input:       "def int = 1",
+			errorSubstr: "expected identifier after type in def statement",
+		},
+		"function param missing name": {
+			input:       "fnc foo(int32) -> int32 { }",
+			errorSubstr: "expected identifier after type in function definition params",
+		},
+		"struct field missing name": {
+			input:       "struct Player { int32 }",
+			errorSubstr: "expected identifer after type in struct definition",
+		},
+	}
+
+	runErrorTests(t, tests)
+}
+
+func TestTypeParseErrorReporting(t *testing.T) {
+	tests := map[string]struct {
+		input       string
+		errorSubstr string
+	}{
+		"sizeof missing type": {
+			input:       "sizeof",
+			errorSubstr: "expected type after sizeof keyword",
+		},
+		"cast missing type": {
+			input:       "x as",
+			errorSubstr: "expected type after as token in cast expr",
+		},
+		"array missing type": {
+			input:       "[; 1]",
+			errorSubstr: "expected type after [ in array literal expr",
+		},
+	}
+
+	runErrorTests(t, tests)
+}
+
 func runTestCheckForTimeout(t *testing.T, tests map[string]string) {
 	for name, input := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -648,6 +705,55 @@ func runTestCheckForTimeout(t *testing.T, tests map[string]string) {
 				l := lexer.New(input)
 				p := New(l)
 				_ = p.ParseProgram()
+			}()
+
+			select {
+			case <-timeout:
+				t.Fatalf("timed out after 1 second while parsing input")
+			case <-done:
+			}
+		})
+	}
+}
+
+func runErrorTests(t *testing.T, tests map[string]struct {
+	input       string
+	errorSubstr string
+}) {
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			timeout := time.After(1 * time.Second)
+			done := make(chan bool)
+			var p *Parser
+
+			go func() {
+				defer func() {
+					if r := recover(); r != nil {
+						t.Errorf("panicked: %v", r)
+					}
+					done <- true
+				}()
+
+				l := lexer.New(test.input)
+				p = New(l)
+				_ = p.ParseProgram()
+
+				if len(p.Errors) == 0 {
+					t.Errorf("expected parser error containing %q, got none", test.errorSubstr)
+					return
+				}
+
+				for _, err := range p.Errors {
+					if strings.Contains(err.Msg, test.errorSubstr) {
+						return
+					}
+				}
+
+				var msgs []string
+				for _, err := range p.Errors {
+					msgs = append(msgs, err.Msg)
+				}
+				t.Errorf("expected parser error containing %q, got %v", test.errorSubstr, msgs)
 			}()
 
 			select {
