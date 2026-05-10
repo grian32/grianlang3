@@ -174,7 +174,7 @@ func TestFuncStatement(t *testing.T) {
     }
     return Item:{ id }
 }`,
-			"fnc create_item(Int32 id) -> Item { if (id < 0(Int32)() { return Item:{ default_id } };return Item:{ id } };",
+			"fnc create_item(Int32 id) -> Item { if (id < 0(Int32)) { return Item:{default_id} };return Item:{id} };",
 		},
 	}
 
