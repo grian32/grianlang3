@@ -42,23 +42,15 @@ func (p *Parser) parseStructStatement() Statement {
 	}
 	stmt.Names = make(map[string]int)
 	for !p.currTokenIs(lexer.RBRACE) {
-		vt, ok := p.parseType()
+		vt, ident, ok := p.parseTypedIdentifier()
 		if !ok {
 			pos := stmt.Position()
 			pos.CopyEnd(&p.currToken.Position)
 			p.appendError(pos, "expected type in struct definition")
 			return nil
 		}
-
-		if !p.currTokenIs(lexer.IDENTIFIER) {
-			pos := stmt.Position()
-			pos.CopyEnd(&p.currToken.Position)
-			p.appendError(pos, "expected identifier after type in struct definition")
-			return nil
-		}
 		stmt.Types = append(stmt.Types, vt)
-		stmt.Names[p.currToken.Literal] = len(stmt.Types) - 1
-		p.NextToken()
+		stmt.Names[ident.Value] = len(stmt.Types) - 1
 	}
 	stmt.Position().CopyEnd(&p.currToken.Position)
 	p.NextToken()
@@ -102,21 +94,14 @@ func (p *Parser) parseFunctionStatement() Statement {
 
 	// for empty arg list if it is rparen then it just stops immediately since we curr are on lparen
 	for !p.currTokenIs(lexer.RPAREN) {
-		paramType, ok := p.parseType()
+		paramType, paramName, ok := p.parseTypedIdentifier()
 		if !ok {
 			p.appendError(&p.currToken.Position, "expected type in function definition paramaters")
 			return nil
 		}
-		if !p.currTokenIs(lexer.IDENTIFIER) {
-			p.appendError(&p.currToken.Position, "expected identifier after type in function definition")
-			return nil
-		}
-		ident := &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
-		p.NextToken()
-
 		param := FunctionParameter{
 			Type: paramType,
-			Name: ident,
+			Name: paramName,
 		}
 
 		stmt.Params = append(stmt.Params, param)
@@ -170,20 +155,13 @@ func (p *Parser) parseVarStatement() *DefStatement {
 			return nil
 		}
 	}
-	vt, ok := p.parseType()
+	vt, name, ok := p.parseTypedIdentifier()
 	if !ok {
 		p.appendError(&p.currToken.Position, "expected type in def statement")
 		return nil
 	}
 	stmt.Type = vt
-
-	if !p.currTokenIs(lexer.IDENTIFIER) {
-		p.appendError(&p.currToken.Position, "expected identifier after type in def stmt")
-		return nil
-	}
-
-	stmt.Name = &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
-	p.NextToken()
+	stmt.Name = name
 
 	if !p.expectCurr(lexer.ASSIGN) {
 		return nil

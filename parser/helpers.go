@@ -95,3 +95,17 @@ func (p *Parser) parseType() (lexer.VarType, bool) {
 
 	return vt, true
 }
+
+func (p *Parser) parseTypedIdentifier() (lexer.VarType, *IdentifierExpression, bool) {
+	vt, ok := p.parseType()
+	if !ok {
+		return lexer.VarType{}, nil, false
+	}
+	if !p.currTokenIs(lexer.IDENTIFIER) {
+		return lexer.VarType{}, nil, false
+	}
+	ident := &IdentifierExpression{Value: p.currToken.Literal}
+	p.NextToken()
+
+	return vt, ident, true
+}
