@@ -9,6 +9,7 @@ func (p *Parser) parseArrayLiteral() Expression {
 	vt, ok := p.parseType()
 	if !ok {
 		p.appendError(lit.Position(), "expected type after [ in array literal expr")
+		return nil
 	}
 	if !p.expectCurr(lexer.SEMICOLON) {
 		return nil

@@ -50,7 +50,7 @@ func (p *Parser) parseStructStatement() Statement {
 				p.appendError(pos, "expected type in struct definition")
 			}
 			if !identOk {
-				p.appendError(pos, "expected identifer after typein struct definition")
+				p.appendError(pos, "expected identifer after type in struct definition")
 			}
 			return nil
 		}
@@ -103,10 +103,10 @@ func (p *Parser) parseFunctionStatement() Statement {
 		if !typeOk || !identOk {
 			stmt.Position().CopyEnd(&p.currToken.Position)
 			if !typeOk {
-				p.appendError(&p.currToken.Position, "expected type in function definition paramaters")
+				p.appendError(&p.currToken.Position, "expected type in function definition params")
 			}
 			if !identOk {
-				p.appendError(&p.currToken.Position, "expected identifier after type in function definition paramaters")
+				p.appendError(&p.currToken.Position, "expected identifier after type in function definition params")
 			}
 			return nil
 		}
