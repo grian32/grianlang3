@@ -19,25 +19,20 @@ func (p *Parser) parseArrayLiteral() Expression {
 		return nil
 	}
 	if !p.expectCurr(lexer.SEMICOLON) {
+		p.appendError(&lit.Token.Position, "expected ; after type in array literal expr")
 		lit.Position().CopyEnd(&p.currToken.Position)
 		return nil
 	}
 	lit.Type = vt
-	lit.Items = []Expression{}
 
-	for !p.currTokenIs(lexer.RBRACKET) {
-		expr := p.parseExpression(LOWEST)
-		lit.Items = append(lit.Items, expr)
-		if p.currTokenIs(lexer.RBRACKET) {
-			break
-		} else if p.currTokenIs(lexer.COMMA) {
-			p.NextToken()
-			continue
-		} else {
-			lit.Position().CopyEnd(&p.currToken.Position)
-			return nil
-		}
+	items, ok := p.parseExpressionList(lexer.RBRACKET)
+	if !ok {
+		p.appendError(&lit.Token.Position, "expected ] or , in array literal expr")
+		lit.Position().CopyEnd(&p.currToken.Position)
+		return nil
 	}
+	lit.Items = items
+
 	p.NextToken()
 
 	lit.Position().CopyEnd(&p.currToken.Position)

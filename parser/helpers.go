@@ -110,3 +110,21 @@ func (p *Parser) parseTypedIdentifier() (lexer.VarType, *IdentifierExpression, b
 
 	return vt, ident, true, true
 }
+
+func (p *Parser) parseExpressionList(end lexer.TokenType) ([]Expression, bool) {
+	var params []Expression
+	for !p.currTokenIs(end) {
+		expr := p.parseExpression(LOWEST)
+		params = append(params, expr)
+		if p.currTokenIs(end) {
+			break
+		} else if p.currTokenIs(lexer.COMMA) {
+			p.NextToken()
+			continue
+		} else {
+			return nil, false
+		}
+	}
+
+	return params, true
+}

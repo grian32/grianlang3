@@ -90,23 +90,14 @@ func (p *Parser) parseCallExpression(left Expression) Expression {
 		return nil
 	}
 
-	exp.Params = []Expression{}
-
-	for !p.currTokenIs(lexer.RPAREN) {
-		expr := p.parseExpression(LOWEST)
-		// next token should be done by each individual parsing function as necessary, doing it this way
-		// introduces rather strange bugs
-		//p.NextToken()
-		exp.Params = append(exp.Params, expr)
-		if p.currTokenIs(lexer.RPAREN) {
-			break
-		} else if p.currTokenIs(lexer.COMMA) {
-			p.NextToken()
-			continue
-		} else {
-			return nil
-		}
+	params, ok := p.parseExpressionList(lexer.RPAREN)
+	if !ok {
+		exp.Position().CopyEnd(&p.currToken.Position)
+		p.appendError(exp.Position(), "expected ) or , when parsing param list in call expression")
+		return nil
 	}
+	exp.Params = params
+
 	exp.Position().CopyEnd(&p.currToken.Position)
 	p.NextToken()
 
@@ -114,11 +105,15 @@ func (p *Parser) parseCallExpression(left Expression) Expression {
 }
 
 func (p *Parser) parseStructInitialization(left Expression) Expression {
-	exp := &StructInitializationExpression{Token: p.currToken}
+	exp := &StructInitializationExpression{Token: p.currToken, position: util.Position{
+		StartLine: p.currToken.Position.StartLine,
+		StartCol:  p.currToken.Position.StartCol,
+	}}
 	if ident, ok := left.(*IdentifierExpression); ok {
 		exp.Name = ident.Value
 	} else {
-		p.appendError(&p.currToken.Position, "expected identifier on lhs of struct init")
+		exp.position.CopyEnd(&p.currToken.Position)
+		p.appendError(exp.Position(), "expected identifier on lhs of struct init")
 		return nil
 	}
 	p.NextToken() // skip past :
@@ -126,19 +121,16 @@ func (p *Parser) parseStructInitialization(left Expression) Expression {
 		p.NextToken()
 	}
 
-	for !p.currTokenIs(lexer.RBRACE) {
-		expr := p.parseExpression(LOWEST)
-		exp.Values = append(exp.Values, expr)
-		if p.currTokenIs(lexer.RBRACE) {
-			break
-		} else if p.currTokenIs(lexer.COMMA) {
-			p.NextToken()
-			continue
-		} else {
-			return nil
-		}
+	values, ok := p.parseExpressionList(lexer.RBRACE)
+	if !ok {
+		exp.position.CopyEnd(&p.currToken.Position)
+		p.appendError(exp.Position(), "expected ] or , in struct init expression")
+		return nil
 	}
+	exp.Values = values
+
 	p.NextToken()
+	exp.position.CopyEnd(&p.currToken.Position)
 
 	return exp
 }

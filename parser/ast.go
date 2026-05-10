@@ -567,9 +567,10 @@ func (ss *StructStatement) Position() *util.Position {
 }
 
 type StructInitializationExpression struct {
-	Token  lexer.Token
-	Name   string
-	Values []Expression
+	Token    lexer.Token
+	Name     string
+	Values   []Expression
+	position util.Position
 }
 
 func (sie *StructInitializationExpression) expressionNode()      { /* noop */ }
@@ -588,13 +589,7 @@ func (sie *StructInitializationExpression) String() string {
 	return out.String()
 }
 func (sie *StructInitializationExpression) Position() *util.Position {
-	lastValPos := sie.Values[len(sie.Values)-1].Position()
-	return &util.Position{
-		StartLine: sie.Token.Position.StartLine,
-		StartCol:  sie.Token.Position.StartCol,
-		EndLine:   lastValPos.EndLine,
-		EndCol:    lastValPos.EndCol,
-	}
+	return &sie.position
 }
 
 type BreakStatement struct {
