@@ -1,0 +1,74 @@
+package parser
+
+import (
+	"fmt"
+	"grianlang3/lexer"
+	"grianlang3/util"
+)
+
+func (p *Parser) peekPrecedence() byte {
+	if p, ok := precedences[p.peekToken.Type]; ok {
+		return p
+	}
+
+	return LOWEST
+}
+
+func (p *Parser) currPrecedence() byte {
+	if p, ok := precedences[p.currToken.Type]; ok {
+		return p
+	}
+
+	return LOWEST
+}
+
+func (p *Parser) noPrefixParseFnError(t lexer.Token, pos *util.Position) {
+	p.appendError(pos, "no prefix parse function for %s, peek=%s found", t.Type.String(), p.peekToken.Type.String())
+	// to prevent inf loops
+	p.NextToken()
+}
+
+func (p *Parser) expectPeek(t lexer.TokenType) bool {
+	if p.peekTokenIs(t) {
+		p.NextToken()
+		return true
+	}
+
+	p.peekError(t, &p.peekToken.Position)
+	return false
+}
+
+func (p *Parser) peekError(t lexer.TokenType, pos *util.Position) {
+	p.appendError(pos, "expected next token to be %s, got %s instead", t, p.peekToken.Type)
+}
+
+func (p *Parser) expectCurr(t lexer.TokenType) bool {
+	if p.currTokenIs(t) {
+		p.NextToken()
+		return true
+	}
+
+	p.currError(t, &p.currToken.Position)
+	// advance so it can keep parsing instead of a loop or something
+	p.NextToken()
+	return false
+}
+
+func (p *Parser) currError(t lexer.TokenType, pos *util.Position) {
+	p.appendError(pos, "expected curr token to be %s, got %s instead", t, p.peekToken.Type)
+}
+
+func (p *Parser) appendError(pos *util.Position, msg string, v ...any) {
+	p.Errors = append(p.Errors, util.PositionError{
+		Position: pos,
+		Msg:      fmt.Sprintf(msg, v...),
+	})
+}
+
+func (p *Parser) peekTokenIs(tt lexer.TokenType) bool {
+	return p.peekToken.Type == tt
+}
+
+func (p *Parser) currTokenIs(tt lexer.TokenType) bool {
+	return p.currToken.Type == tt
+}
