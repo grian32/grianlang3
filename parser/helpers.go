@@ -104,7 +104,7 @@ func (p *Parser) parseTypedIdentifier() (lexer.VarType, *IdentifierExpression, b
 	if !p.currTokenIs(lexer.IDENTIFIER) {
 		return lexer.VarType{}, nil, false
 	}
-	ident := &IdentifierExpression{Value: p.currToken.Literal}
+	ident := &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
 	p.NextToken()
 
 	return vt, ident, true
