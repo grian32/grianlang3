@@ -48,8 +48,8 @@ func (p *Parser) parseSizeofExpression() Expression {
 		StartCol:  p.currToken.Position.StartCol,
 	}}
 	p.NextToken() // past sizeof
-	vt, err := p.parseType()
-	if err != nil {
+	vt, ok := p.parseType()
+	if !ok {
 		expr.Position().CopyEnd(&p.currToken.Position)
 		p.appendError(&expr.position, "expected type after sizeof keyword")
 		return nil

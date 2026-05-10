@@ -27,8 +27,8 @@ func (p *Parser) parseCastExpression(left Expression) Expression {
 	expr.Expr = left
 
 	p.NextToken() // asvance past AS
-	castType, err := p.parseType()
-	if err != nil {
+	castType, ok := p.parseType()
+	if !ok {
 		expr.Position().CopyEnd(&p.currToken.Position)
 		p.appendError(&expr.position, "expected type after as token in cast expr")
 		return nil

@@ -42,8 +42,8 @@ func (p *Parser) parseStructStatement() Statement {
 	}
 	stmt.Names = make(map[string]int)
 	for !p.currTokenIs(lexer.RBRACE) {
-		vt, err := p.parseType()
-		if err != nil {
+		vt, ok := p.parseType()
+		if !ok {
 			pos := stmt.Position()
 			pos.CopyEnd(&p.currToken.Position)
 			p.appendError(pos, "expected type in struct definition")
@@ -102,8 +102,8 @@ func (p *Parser) parseFunctionStatement() Statement {
 
 	// for empty arg list if it is rparen then it just stops immediately since we curr are on lparen
 	for !p.currTokenIs(lexer.RPAREN) {
-		paramType, err := p.parseType()
-		if err != nil {
+		paramType, ok := p.parseType()
+		if !ok {
 			p.appendError(&p.currToken.Position, "expected type in function definition paramaters")
 			return nil
 		}
@@ -134,8 +134,8 @@ func (p *Parser) parseFunctionStatement() Statement {
 	if !p.expectCurr(lexer.ARROW) {
 		return nil
 	}
-	retType, err := p.parseType()
-	if err != nil {
+	retType, ok := p.parseType()
+	if !ok {
 		stmt.Position().CopyEnd(&p.currToken.Position)
 		p.appendError(stmt.Position(), "expected return type after arrow in function decl")
 		return nil
@@ -170,8 +170,8 @@ func (p *Parser) parseVarStatement() *DefStatement {
 			return nil
 		}
 	}
-	vt, err := p.parseType()
-	if err != nil {
+	vt, ok := p.parseType()
+	if !ok {
 		p.appendError(&p.currToken.Position, "expected type in def statement")
 		return nil
 	}

@@ -6,8 +6,8 @@ func (p *Parser) parseArrayLiteral() Expression {
 	lit := &ArrayLiteral{Token: p.currToken}
 	// assumess curr = [
 	p.NextToken()
-	vt, err := p.parseType()
-	if err != nil {
+	vt, ok := p.parseType()
+	if !ok {
 		p.appendError(lit.Position(), "expected type after [ in array literal expr")
 	}
 	if !p.expectCurr(lexer.SEMICOLON) {
