@@ -71,7 +71,6 @@ func (c *Checker) Check(node parser.Node) {
 		c.Check(node.Right)
 	case *parser.DefStatement:
 		if node.Global && node.Constant {
-			fmt.Printf("%v\n", node)
 			c.constVars[node.Name.Value] = struct{}{}
 		}
 		c.varTypes[node.Name.Value] = node.Type
@@ -202,7 +201,7 @@ func (c *Checker) checkPrintArgs(node *parser.CallExpression) {
 	r, _ := regexp.Compile("%(?:(?:b|c|s)|(?:(?:f|u|fu|)(?:y|w|d|l)))")
 	found := r.FindAllString(fmtStr, -1)
 	if len(found) != len(node.Params)-1 {
-		c.appendError(node.Position(), "print/ln function should have as many specifiers as arguments given")
+		c.appendError(node.Position(), "print/ln function should have as many specifiers as arguments given, %d specifiers, %d argument", len(found), len(node.Params)-1)
 		return
 	}
 
@@ -211,10 +210,35 @@ func (c *Checker) checkPrintArgs(node *parser.CallExpression) {
 		arg := node.Params[i+1]
 		switch specifier {
 		case "%b":
-			typ, ok := c.getVarType(arg)
-			if !ok || typ.Base != lexer.Bool || typ.Pointer > 0 {
-				c.appendError(node.Position(), "printf arg %d with specifier %%b isnt't bool, has type: %s", i, typ.String())
-			}
+			c.checkSpecifier(arg, lexer.Bool, 0, i, specifier, node.Position())
+		case "%c":
+			c.checkSpecifier(arg, lexer.Char, 0, i, specifier, node.Position())
+		case "%s":
+			c.checkSpecifier(arg, lexer.Char, 1, i, specifier, node.Position())
+		case "%y", "%fy":
+			c.checkSpecifier(arg, lexer.Int8, 0, i, specifier, node.Position())
+		case "%uy", "%fuy":
+			c.checkSpecifier(arg, lexer.Uint8, 0, i, specifier, node.Position())
+		case "%w", "%fw":
+			c.checkSpecifier(arg, lexer.Int16, 0, i, specifier, node.Position())
+		case "%uw", "%fuw":
+			c.checkSpecifier(arg, lexer.Uint16, 0, i, specifier, node.Position())
+		case "%d", "%fd":
+			c.checkSpecifier(arg, lexer.Int32, 0, i, specifier, node.Position())
+		case "%ud", "%fud":
+			c.checkSpecifier(arg, lexer.Uint32, 0, i, specifier, node.Position())
+		case "%l", "%fl":
+			c.checkSpecifier(arg, lexer.Int32, 0, i, specifier, node.Position())
+		case "%ul", "%ful":
+			c.checkSpecifier(arg, lexer.Uint32, 0, i, specifier, node.Position())
 		}
+	}
+}
+
+func (c *Checker) checkSpecifier(arg parser.Expression, expectedType lexer.BaseVarType, expectedPointer uint8, idx int, specifier string, position *util.Position) {
+	typ, ok := c.getVarType(arg)
+	if !ok || typ.Base != expectedType || typ.Pointer != expectedPointer {
+		expectedVt := lexer.VarType{Base: expectedType, Pointer: expectedPointer}
+		c.appendError(position, "print/ln arg %d with specifier %s isnt't %s, has type: %s", idx, specifier, expectedVt, typ.String())
 	}
 }
