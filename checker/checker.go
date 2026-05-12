@@ -228,9 +228,9 @@ func (c *Checker) checkPrintArgs(node *parser.CallExpression) {
 		case "%ud", "%fud":
 			c.checkSpecifier(arg, lexer.Uint32, 0, i, specifier, node.Position())
 		case "%l", "%fl":
-			c.checkSpecifier(arg, lexer.Int32, 0, i, specifier, node.Position())
+			c.checkSpecifier(arg, lexer.Int, 0, i, specifier, node.Position())
 		case "%ul", "%ful":
-			c.checkSpecifier(arg, lexer.Uint32, 0, i, specifier, node.Position())
+			c.checkSpecifier(arg, lexer.Uint, 0, i, specifier, node.Position())
 		}
 	}
 }
