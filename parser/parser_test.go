@@ -644,6 +644,17 @@ fnc main() -> int32 {
 	runTestCheckForTimeout(t, tests)
 }
 
+func TestLineCommentWithoutTrailingNewlineRegression(t *testing.T) {
+	tests := map[string]InputOutput{
+		"parses empty program": {
+			input:  "// no new line",
+			output: "",
+		},
+	}
+
+	runTests(t, tests)
+}
+
 func TestTypedIdentifierErrorReporting(t *testing.T) {
 	tests := map[string]struct {
 		input       string
@@ -701,7 +712,6 @@ func runTestCheckForTimeout(t *testing.T, tests map[string]string) {
 					}
 					done <- true
 				}()
-
 				l := lexer.New(input)
 				p := New(l)
 				_ = p.ParseProgram()
@@ -793,13 +803,15 @@ func runTests(t *testing.T, tests map[string]InputOutput) {
 			select {
 			case <-timeout:
 				var trimmedErrors []string
-				if len(p.Errors) > 5 {
-					for _, err := range p.Errors[:5] {
-						trimmedErrors = append(trimmedErrors, err.String())
-					}
-				} else {
-					for _, err := range p.Errors {
-						trimmedErrors = append(trimmedErrors, err.String())
+				if p != nil {
+					if len(p.Errors) > 5 {
+						for _, err := range p.Errors[:5] {
+							trimmedErrors = append(trimmedErrors, err.String())
+						}
+					} else {
+						for _, err := range p.Errors {
+							trimmedErrors = append(trimmedErrors, err.String())
+						}
 					}
 				}
 				t.Fatalf("timed out after 1 second with parser errors: %v", trimmedErrors)

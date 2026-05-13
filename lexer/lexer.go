@@ -70,12 +70,14 @@ func (l *Lexer) NextToken() Token {
 		}
 
 		if l.ch == '/' && l.peekChar() == '/' {
-			for l.ch != '\n' {
+			for l.ch != '\n' && l.ch != 0 {
 				l.readChar()
 			}
-			l.currLine++
-			l.currCh = 0
-			continue
+			if l.ch == '\n' {
+				l.currLine++
+				l.currCh = 0
+				l.readChar()
+			}
 		}
 
 		break
