@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"grianlang3/lexer"
 	"grianlang3/util"
@@ -40,9 +41,17 @@ func RunExDef(opts *ExDefOpts) error {
 	}
 	var gl3Out strings.Builder
 
+	var outErr error
 	defines.Range(func(n, v string) {
-		resolveDefine(n, defines)
+		err := resolveDefine(n, defines, make(map[string]bool))
+		if err != nil {
+			outErr = err
+			return
+		}
 	})
+	if outErr != nil {
+		return outErr
+	}
 
 	var rangeErr error
 	defines.Range(func(n, v string) {
@@ -90,7 +99,11 @@ func stripCasts(val string) string {
 }
 
 // this will resolve f.e #define A B or #define A "whatever" or #define A (OTHER / 5000)
-func resolveDefine(name string, defines *util.OrderedMap[string, string]) {
+func resolveDefine(name string, defines *util.OrderedMap[string, string], visiting map[string]bool) error {
+	if visiting[name] {
+		return errors.New("cyclical defines not allowed")
+	}
+	visiting[name] = true
 	def, _ := defines.Get(name)
 	parts := strings.Fields(def)
 	var newV strings.Builder
@@ -108,8 +121,9 @@ func resolveDefine(name string, defines *util.OrderedMap[string, string]) {
 	def, _ = defines.Get(name)
 	// if naive infer is string or some bullshit its prob busted but otherwise we can assume its a math op etc
 	if inferType(def).Base == lexer.None {
-		resolveDefine(name, defines)
+		return resolveDefine(name, defines, visiting)
 	}
+	return nil
 }
 
 func inferType(val string) lexer.VarType {
