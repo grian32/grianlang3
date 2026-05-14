@@ -40,20 +40,20 @@ import "file.gl3"    // GL3 source file
 
 ### Primitive Types
 
-| Type    | Description                  |
-|---------|------------------------------|
-| `int8`  | 8-bit signed integer         |
-| `int16` | 16-bit signed integer        |
-| `int32` | 32-bit signed integer        |
-| `int`   | 64-bit signed integer        |
-| `uint8` | 8-bit unsigned integer       |
-| `uint16`| 16-bit unsigned integer      |
-| `uint32`| 32-bit unsigned integer      |
-| `uint`  | 64-bit unsigned integer      |
-| `char`  | 8-bit value (alias for int8) |
-| `bool`  | boolean (true or false)      |
-| `float` | 32-bit floating point        |
-| `none`  | void type (function returns) |
+| Type     | Description                  |
+| -------- | ---------------------------- |
+| `int8`   | 8-bit signed integer         |
+| `int16`  | 16-bit signed integer        |
+| `int32`  | 32-bit signed integer        |
+| `int`    | 64-bit signed integer        |
+| `uint8`  | 8-bit unsigned integer       |
+| `uint16` | 16-bit unsigned integer      |
+| `uint32` | 32-bit unsigned integer      |
+| `uint`   | 64-bit unsigned integer      |
+| `char`   | 8-bit value (alias for int8) |
+| `bool`   | boolean (true or false)      |
+| `float`  | 32-bit floating point        |
+| `none`   | void type (function returns) |
 
 ### Pointer Types
 
@@ -193,28 +193,28 @@ struct_instance.field = value   // struct field assignment
 
 ### Prefix Operators
 
-| Operator | Description    | Example |
-|----------|----------------|---------|
-| `-`      | Negation       | `-x`    |
-| `!`      | Logical NOT    | `!flag` |
-| `&`      | Address-of     | `&x`    |
-| `*`      | Dereference    | `*ptr`  |
+| Operator | Description | Example |
+| -------- | ----------- | ------- |
+| `-`      | Negation    | `-x`    |
+| `!`      | Logical NOT | `!flag` |
+| `&`      | Address-of  | `&x`    |
+| `*`      | Dereference | `*ptr`  |
 
 ### Infix Operators
 
-| Operator | Description           | Example  |
-|----------|-----------------------|----------|
-| `+`      | Addition              | `a + b`  |
-| `-`      | Subtraction           | `a - b`  |
-| `*`      | Multiplication        | `a * b`  |
-| `/`      | Division              | `a / b`  |
-| `==`     | Equality              | `a == b` |
-| `!=`     | Inequality            | `a != b` |
-| `<`      | Less than             | `a < b`  |
-| `>`      | Greater than          | `a > b`  |
-| `<=`     | Less than or equal    | `a <= b` |
-| `>=`     | Greater than or equal | `a >= b` |
-| `&&`     | Logical AND           | `a && b` |
+| Operator | Description           | Example    |
+| -------- | --------------------- | ---------- |
+| `+`      | Addition              | `a + b`    |
+| `-`      | Subtraction           | `a - b`    |
+| `*`      | Multiplication        | `a * b`    |
+| `/`      | Division              | `a / b`    |
+| `==`     | Equality              | `a == b`   |
+| `!=`     | Inequality            | `a != b`   |
+| `<`      | Less than             | `a < b`    |
+| `>`      | Greater than          | `a > b`    |
+| `<=`     | Less than or equal    | `a <= b`   |
+| `>=`     | Greater than or equal | `a >= b`   |
+| `&&`     | Logical AND           | `a && b`   |
 | `\|\|`   | Logical OR            | `a \|\| b` |
 
 ### Operator Precedence (lowest to highest)
@@ -396,7 +396,7 @@ struct Item {
 global int32 default_id = 1i32
 
 fnc create_item(int32 id) -> Item {
-    return Item{ id }
+    return Item:{ id }
 }
 
 fnc main() -> int32 {
