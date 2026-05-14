@@ -37,8 +37,7 @@ gl3 build [--flags]
 
 | Flag | Description |
 | ---- | ----------- |
-| `--dbg` | Print the AST for all compiled files, along with the `clang` command used for compilation |
-| `--keepll` | Save the `.ll` files produced by compilation |
+| `--dbg` | Print the AST and LLVM IR for all compiled files, along with the `clang` command used for compilation |
 | `--noexecbuild` | Generate LLVM IR without running the `clang` build step |
 | `-h`, `--help` | Show help for `build` |
 

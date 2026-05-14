@@ -14,7 +14,6 @@ import (
 )
 
 type BuildOpts struct {
-	KeepLL      bool
 	Dbg         bool
 	NoExecBuild bool
 	Shared      bool
@@ -22,13 +21,6 @@ type BuildOpts struct {
 }
 
 func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
-	// TODO: really should do this in /tmp
-	if err := os.RemoveAll("./lltemp"); err != nil {
-		return err
-	}
-	if err := os.Mkdir("./lltemp", os.ModePerm); err != nil {
-		return err
-	}
 	var llFiles []string
 	builtinModules := map[string]struct{}{}
 	for _, file := range files {
@@ -78,8 +70,8 @@ func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
 		}
 		llvmIr := e.Module()
 
-		fileName := fmt.Sprintf("./lltemp/%s.ll", file)
-		llFile, err := os.Create(fileName)
+		fileName := fmt.Sprintf("%s-*.ll", file)
+		llFile, err := os.CreateTemp("", fileName)
 		if err != nil {
 			return fmt.Errorf("%s: %w\n", file, err)
 		}
@@ -87,12 +79,15 @@ func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
 		if err != nil {
 			return fmt.Errorf("%s: %w\n", file, err)
 		}
+		if opts.Dbg {
+			fmt.Printf("%s llvm ir: %s", file, llvmIr)
+		}
 		err = llFile.Close()
 		if err != nil {
 			return fmt.Errorf("%s: %w\n", file, err)
 		}
 
-		llFiles = append(llFiles, fileName)
+		llFiles = append(llFiles, llFile.Name())
 
 		for _, builtinModule := range e.BuiltinModules() {
 			builtinModules[builtinModule] = struct{}{}
@@ -109,8 +104,8 @@ func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
 			return fmt.Errorf("failed to read %s from builtin fs: %w\n", mod, err)
 		}
 
-		fileName := fmt.Sprintf("./lltemp/%s", mod)
-		llFile, err := os.Create(fileName)
+		fileName := fmt.Sprintf("*%s", mod)
+		llFile, err := os.CreateTemp("", fileName)
 		if err != nil {
 			return fmt.Errorf("failed to create %s: %w\n", llFile.Name(), err)
 		}
@@ -122,7 +117,7 @@ func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
 		if err != nil {
 			return fmt.Errorf("failed to close %s: %w\n", llFile.Name(), err)
 		}
-		llFiles = append(llFiles, fileName)
+		llFiles = append(llFiles, llFile.Name())
 	}
 
 	llFiles = append(llFiles, "-o", opts.Output)
@@ -137,11 +132,6 @@ func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("error in clang exec, out: %s, err: %w", out, err)
-		}
-	}
-	if !opts.KeepLL {
-		if err := os.RemoveAll("./lltemp"); err != nil {
-			return err
 		}
 	}
 
