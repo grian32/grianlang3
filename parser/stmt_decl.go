@@ -6,23 +6,39 @@ import (
 )
 
 func (p *Parser) parseExternStatement() Statement {
-	stmt := &ExternStructStatement{Token: p.currToken, position: util.Position{
-		StartLine: p.currToken.Position.StartLine,
-		StartCol:  p.currToken.Position.StartCol,
-	}}
+	currTkn := p.currToken
 	p.NextToken()
-	if !p.expectCurr(lexer.STRUCT) {
-		return nil
+	if p.currTokenIs(lexer.STRUCT) {
+		stmt := &ExternStructStatement{Token: currTkn, position: util.Position{
+			StartLine: p.currToken.Position.StartLine,
+			StartCol:  p.currToken.Position.StartCol,
+		}}
+		if !p.currTokenIs(lexer.IDENTIFIER) {
+			return nil
+		}
+		stmt.position.CopyEnd(&p.currToken.Position)
+		stmt.Name = p.currToken.Literal
+		p.NextToken()
+
+		return stmt
+	} else if p.currTokenIs(lexer.FNC) {
+		stmt := &ExternFunctionStatement{Token: currTkn, position: util.Position{
+			StartLine: p.currToken.Position.StartLine,
+			StartCol:  p.currToken.Position.StartCol,
+		}}
+		name, params, retType := p.parseFunctionHeader()
+		if name == nil || params == nil {
+			stmt.Position().CopyEnd(&p.currToken.Position)
+			return nil
+		}
+		stmt.Name = name.Value
+		stmt.Params = params
+		stmt.ReturnType = retType
+
+		return stmt
 	}
 
-	if !p.currTokenIs(lexer.IDENTIFIER) {
-		return nil
-	}
-	stmt.position.CopyEnd(&p.currToken.Position)
-	stmt.Name = p.currToken.Literal
-	p.NextToken()
-
-	return stmt
+	return nil
 }
 
 func (p *Parser) parseStructStatement() Statement {

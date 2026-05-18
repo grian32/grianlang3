@@ -620,3 +620,30 @@ func (e *ExternStructStatement) statementNode()           { /* noop */ }
 func (e *ExternStructStatement) TokenLiteral() string     { return e.Token.Literal }
 func (e *ExternStructStatement) String() string           { return "extern struct " + e.Name }
 func (e *ExternStructStatement) Position() *util.Position { return &e.position }
+
+type ExternFunctionStatement struct {
+	Token      lexer.Token
+	Name       string
+	ReturnType lexer.VarType
+	Params     []FunctionParameter
+	position   util.Position
+}
+
+func (e *ExternFunctionStatement) statementNode()       { /* noop */ }
+func (e *ExternFunctionStatement) TokenLiteral() string { return e.Token.Literal }
+func (e *ExternFunctionStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("extern fnc " + e.Name + "(")
+
+	for i, p := range e.Params {
+		out.WriteString(p.String())
+		if i != len(e.Params)-1 {
+			out.WriteString(", ")
+		}
+	}
+	out.WriteString(") -> " + e.ReturnType.String())
+
+	return out.String()
+}
+func (e *ExternFunctionStatement) Position() *util.Position { return &e.position }

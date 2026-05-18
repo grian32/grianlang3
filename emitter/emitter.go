@@ -799,6 +799,15 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		typ := &types.StructType{TypeName: node.Name, Opaque: true}
 		e.structTypes[node.Name] = typ
 		e.m.NewTypeDef(node.Name, typ)
+	case *parser.ExternFunctionStatement:
+		// TODO: abstract this to an emitdeclare since its used also in the import decls
+		var params []*ir.Param
+		for _, p := range node.Params {
+			params = append(params, ir.NewParam(p.Name.Value, e.varTypeToLlvm(p.Type)))
+		}
+		fnc := e.m.NewFunc(node.Name, e.varTypeToLlvm(node.ReturnType), params...)
+		e.functions[node.Name] = fnc
+		e.functionGlReturnTypes[node.Name] = node.ReturnType
 	}
 
 	return nil, lexer.VarType{}

@@ -1,0 +1,8 @@
+import "io"
+
+extern fnc strlen(char *s) -> int
+
+fnc main() -> int32 {
+    println("%d", strlen("Hello!"));
+    return 0i32;
+}

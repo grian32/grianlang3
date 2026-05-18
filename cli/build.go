@@ -78,7 +78,7 @@ func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
 		}
 		llvmIr := e.Module()
 
-		fileName := fmt.Sprintf("%s-*.ll", file)
+		_, fileName, _ := strings.Cut(fmt.Sprintf("%s-*.ll", file), "/")
 		llFile, err := os.CreateTemp("", fileName)
 		if err != nil {
 			return fmt.Errorf("%s: %w\n", file, err)
