@@ -2,6 +2,7 @@ package cli
 
 import (
 	"embed"
+	"errors"
 	"fmt"
 	"grianlang3/checker"
 	"grianlang3/emitter"
@@ -18,9 +19,16 @@ type BuildOpts struct {
 	NoExecBuild bool
 	Shared      bool
 	Output      string
+	O1          bool
+	O2          bool
+	O3          bool
 }
 
 func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
+	if opts.O1 && opts.O2 || opts.O1 && opts.O3 || opts.O2 && opts.O3 {
+		return errors.New("multiple optimization level arguments not allowed, please use either --O1, --O2, --O3")
+	}
+
 	var llFiles []string
 	builtinModules := map[string]struct{}{}
 	for _, file := range files {
@@ -123,6 +131,15 @@ func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
 	llFiles = append(llFiles, "-o", opts.Output)
 	if opts.Shared {
 		llFiles = append(llFiles, "-shared")
+	}
+	if opts.O1 {
+		llFiles = append(llFiles, "-O1")
+	}
+	if opts.O2 {
+		llFiles = append(llFiles, "-O2")
+	}
+	if opts.O3 {
+		llFiles = append(llFiles, "-O3")
 	}
 	if !opts.NoExecBuild {
 		cmd := exec.Command("clang", llFiles...)
