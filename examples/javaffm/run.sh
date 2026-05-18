@@ -18,6 +18,6 @@ esac
 
 javac Main.java
 jar cfe app.jar Main Main.class
-java -Djava.library.path=. -jar app.jar
+java --enable-native-access=ALL-UNNAMED -Djava.library.path=. -jar app.jar
 
 rm -f Main.class app.jar gl3 "$LIB_NAME"
