@@ -79,65 +79,74 @@ func (p *Parser) parseImportStatement() Statement {
 	return stmt
 }
 
-func (p *Parser) parseFunctionStatement() Statement {
-	stmt := &FunctionStatement{Token: p.currToken, position: util.Position{
-		StartLine: p.currToken.Position.StartLine,
-		StartCol:  p.currToken.Position.EndCol,
-	}}
+// returns: name ident, []params, return type
+func (p *Parser) parseFunctionHeader() (*IdentifierExpression, []FunctionParameter, lexer.VarType) {
 	p.NextToken()
 	if !p.currTokenIs(lexer.IDENTIFIER) {
 		p.appendError(&p.currToken.Position, "expected identifier after fnc keyword")
-		return nil
+		return nil, nil, lexer.VarType{}
 	}
-	stmt.Name = &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
+	name := &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
 	p.NextToken()
 	if !p.expectCurr(lexer.LPAREN) {
-		return nil
+		return nil, nil, lexer.VarType{}
 	}
 
-	stmt.Params = []FunctionParameter{}
-
+	params := []FunctionParameter{}
 	// for empty arg list if it is rparen then it just stops immediately since we curr are on lparen
 	for !p.currTokenIs(lexer.RPAREN) {
 		paramType, paramName, typeOk, identOk := p.parseTypedIdentifier()
 		if !typeOk || !identOk {
-			stmt.Position().CopyEnd(&p.currToken.Position)
 			if !typeOk {
 				p.appendError(&p.currToken.Position, "expected type in function definition params")
 			}
 			if !identOk {
 				p.appendError(&p.currToken.Position, "expected identifier after type in function definition params")
 			}
-			return nil
+			return nil, nil, lexer.VarType{}
 		}
 		param := FunctionParameter{
 			Type: paramType,
 			Name: paramName,
 		}
 
-		stmt.Params = append(stmt.Params, param)
+		params = append(params, param)
 		if p.currTokenIs(lexer.RPAREN) {
 			break
 		} else if p.currTokenIs(lexer.COMMA) {
 			p.NextToken()
 			continue
 		} else {
-			return nil
+			return nil, nil, lexer.VarType{}
 		}
 	}
 	p.NextToken()
 
 	if !p.expectCurr(lexer.ARROW) {
-		return nil
+		return nil, nil, lexer.VarType{}
 	}
 	retType, ok := p.parseType()
 	if !ok {
+		p.appendError(&p.currToken.Position, "expected return type after arrow in function decl")
+		return nil, nil, lexer.VarType{}
+	}
+
+	return name, params, retType
+}
+
+func (p *Parser) parseFunctionStatement() Statement {
+	stmt := &FunctionStatement{Token: p.currToken, position: util.Position{
+		StartLine: p.currToken.Position.StartLine,
+		StartCol:  p.currToken.Position.EndCol,
+	}}
+	name, params, retType := p.parseFunctionHeader()
+	if name == nil || params == nil {
 		stmt.Position().CopyEnd(&p.currToken.Position)
-		p.appendError(stmt.Position(), "expected return type after arrow in function decl")
 		return nil
 	}
+	stmt.Name = name
+	stmt.Params = params
 	stmt.Type = retType
-
 	if !p.expectCurr(lexer.LBRACE) {
 		return nil
 	}
