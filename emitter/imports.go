@@ -17,9 +17,15 @@ type StructDefinition struct {
 	FieldNames map[string]int
 }
 
+type GlobalDefinition struct {
+	Name string
+	Type lexer.VarType
+}
+
 type importParser struct {
 	declares    []Declare
 	structDefns []StructDefinition
+	globalDefns []GlobalDefinition
 }
 
 func (ip *importParser) findImports(node parser.Node) {
@@ -46,14 +52,21 @@ func (ip *importParser) findImports(node parser.Node) {
 			Fields:     node.Types,
 			FieldNames: node.Names,
 		})
+	case *parser.DefStatement:
+		if node.Constant && node.Global {
+			ip.globalDefns = append(ip.globalDefns, GlobalDefinition{
+				Name: node.Name.Value,
+				Type: node.Type,
+			})
+		}
 	}
 }
 
-func findDeclares(file string) ([]Declare, []StructDefinition) {
+func findDeclares(file string) ([]Declare, []StructDefinition, []GlobalDefinition) {
 	l := lexer.New(file)
 	p := parser.New(l)
 	program := p.ParseProgram()
 	ip := importParser{}
 	ip.findImports(program)
-	return ip.declares, ip.structDefns
+	return ip.declares, ip.structDefns, ip.globalDefns
 }

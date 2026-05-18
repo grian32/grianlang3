@@ -618,7 +618,24 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 				e.appendError(node.Position(), "cannot find %s file described in import stmt", f)
 				return nil, lexer.VarType{}
 			}
-			declares, structDefns := findDeclares(string(f))
+			declares, structDefns, globalDefns := findDeclares(string(f))
+
+			for _, d := range globalDefns {
+				lt := e.varTypeToLlvm(d.Type)
+
+				vPtr := &ir.Global{
+					GlobalIdent: ir.GlobalIdent{
+						GlobalName: d.Name,
+					},
+					ContentType: lt,
+					Immutable:   true,
+					Linkage:     enum.LinkageExternal,
+				}
+				e.m.Globals = append(e.m.Globals, vPtr)
+				e.globals[d.Name] = vPtr
+				e.varTypes[d.Name] = lt
+				e.varGlTypes[d.Name] = d.Type
+			}
 
 			for _, d := range structDefns {
 				typ := &types.StructType{

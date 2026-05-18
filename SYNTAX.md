@@ -31,9 +31,34 @@ def int32 b = 20i32;
 
 Import statements load standard library modules or other GL3 source files.
 
+For `.gl3` file imports, the imported names are the target file's top-level function definitions, struct definitions, and global constant definitions.
+Standard library modules may expose whatever they want, though in practice they usually only import functions.
+
 ```gl3
 import "module"      // standard library module
 import "file.gl3"    // GL3 source file
+```
+
+Example:
+
+```gl3
+// math.gl3
+global int answer = 42
+
+struct Pair {
+    int left
+    int right
+}
+
+func int add(int a, int b) {
+    return a + b
+}
+
+// main.gl3
+import "math.gl3"
+
+def int x = add(answer, 8)
+def Pair p = Pair:{ 1, 2 }
 ```
 
 ## Data Types
