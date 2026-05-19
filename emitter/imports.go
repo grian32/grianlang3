@@ -35,6 +35,10 @@ func (ip *importParser) findImports(node parser.Node) {
 			ip.findImports(s)
 		}
 	case *parser.FunctionStatement:
+		if node.Private {
+			break
+		}
+
 		var paramTypes []lexer.VarType
 		for _, p := range node.Params {
 			paramTypes = append(paramTypes, p.Type)

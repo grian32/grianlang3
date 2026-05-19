@@ -131,7 +131,7 @@ func (p *Parser) parseStatement() Statement {
 	case lexer.RETURN:
 		return p.parseReturnStatement()
 	case lexer.FNC:
-		return p.parseFunctionStatement()
+		return p.parseFunctionStatement(false)
 	case lexer.IMPORT:
 		return p.parseImportStatement()
 	case lexer.IF:
@@ -145,7 +145,15 @@ func (p *Parser) parseStatement() Statement {
 	case lexer.CONTINUE:
 		return p.parseContinueStatement()
 	case lexer.EXTERN:
-		return p.parseExternStatement()
+		return p.parseExternStatement(false)
+	case lexer.PRIVATE:
+		p.NextToken()
+		switch p.currToken.Type {
+		case lexer.FNC:
+			return p.parseFunctionStatement(true)
+		case lexer.EXTERN:
+			return p.parseExternStatement(true)
+		}
 	}
 
 	return p.parseExpressionStatement()

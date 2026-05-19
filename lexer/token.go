@@ -58,6 +58,7 @@ const (
 	GLOBAL
 	CONST
 	EXTERN
+	PRIVATE
 	EOF
 )
 

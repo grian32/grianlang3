@@ -5,14 +5,14 @@ import (
 	"grianlang3/util"
 )
 
-func (p *Parser) parseExternStatement() Statement {
+func (p *Parser) parseExternStatement(private bool) Statement {
 	currTkn := p.currToken
 	p.NextToken()
 	if p.currTokenIs(lexer.STRUCT) {
 		stmt := &ExternStructStatement{Token: currTkn, position: util.Position{
 			StartLine: p.currToken.Position.StartLine,
 			StartCol:  p.currToken.Position.StartCol,
-		}}
+		}, Private: private}
 		if !p.currTokenIs(lexer.IDENTIFIER) {
 			return nil
 		}
@@ -25,7 +25,7 @@ func (p *Parser) parseExternStatement() Statement {
 		stmt := &ExternFunctionStatement{Token: currTkn, position: util.Position{
 			StartLine: p.currToken.Position.StartLine,
 			StartCol:  p.currToken.Position.StartCol,
-		}}
+		}, Private: private}
 		name, params, retType := p.parseFunctionHeader()
 		if name == nil || params == nil {
 			stmt.Position().CopyEnd(&p.currToken.Position)
@@ -150,11 +150,11 @@ func (p *Parser) parseFunctionHeader() (*IdentifierExpression, []FunctionParamet
 	return name, params, retType
 }
 
-func (p *Parser) parseFunctionStatement() Statement {
+func (p *Parser) parseFunctionStatement(private bool) Statement {
 	stmt := &FunctionStatement{Token: p.currToken, position: util.Position{
 		StartLine: p.currToken.Position.StartLine,
 		StartCol:  p.currToken.Position.EndCol,
-	}}
+	}, Private: private}
 	name, params, retType := p.parseFunctionHeader()
 	if name == nil || params == nil {
 		stmt.Position().CopyEnd(&p.currToken.Position)

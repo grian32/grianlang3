@@ -346,6 +346,8 @@ func identLookup(lit string) (TokenType, BaseVarType) {
 		return CONST, None
 	case "extern":
 		return EXTERN, None
+	case "private":
+		return PRIVATE, None
 	}
 
 	return IDENTIFIER, None
