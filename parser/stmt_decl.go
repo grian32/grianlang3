@@ -13,6 +13,7 @@ func (p *Parser) parseExternStatement(private bool) Statement {
 			StartLine: p.currToken.Position.StartLine,
 			StartCol:  p.currToken.Position.StartCol,
 		}, Private: private}
+		p.NextToken()
 		if !p.currTokenIs(lexer.IDENTIFIER) {
 			return nil
 		}

@@ -22,13 +22,15 @@ type GlobalDefinition struct {
 	Type lexer.VarType
 }
 
-type importParser struct {
+type ImportParser struct {
 	declares    []Declare
 	structDefns []StructDefinition
 	globalDefns []GlobalDefinition
+	// just the name since its all that it uses
+	externStructDefns []string
 }
 
-func (ip *importParser) findImports(node parser.Node) {
+func (ip *ImportParser) findImports(node parser.Node) {
 	switch node := node.(type) {
 	case *parser.Program:
 		for _, s := range node.Statements {
@@ -63,14 +65,34 @@ func (ip *importParser) findImports(node parser.Node) {
 				Type: node.Type,
 			})
 		}
+	case *parser.ExternFunctionStatement:
+		if node.Private {
+			break
+		}
+
+		var paramTypes []lexer.VarType
+		for _, p := range node.Params {
+			paramTypes = append(paramTypes, p.Type)
+		}
+
+		ip.declares = append(ip.declares, Declare{
+			Name:       node.Name,
+			ReturnType: node.ReturnType,
+			ParamTypes: paramTypes,
+		})
+	case *parser.ExternStructStatement:
+		if node.Private {
+			break
+		}
+		ip.externStructDefns = append(ip.externStructDefns, node.Name)
 	}
 }
 
-func findDeclares(file string) ([]Declare, []StructDefinition, []GlobalDefinition) {
+func findDeclares(file string) *ImportParser {
 	l := lexer.New(file)
 	p := parser.New(l)
 	program := p.ParseProgram()
-	ip := importParser{}
+	ip := ImportParser{}
 	ip.findImports(program)
-	return ip.declares, ip.structDefns, ip.globalDefns
+	return &ip
 }

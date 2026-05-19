@@ -618,9 +618,9 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 				e.appendError(node.Position(), "cannot find %s file described in import stmt", f)
 				return nil, lexer.VarType{}
 			}
-			declares, structDefns, globalDefns := findDeclares(string(f))
+			ip := findDeclares(string(f))
 
-			for _, d := range globalDefns {
+			for _, d := range ip.globalDefns {
 				lt := e.varTypeToLlvm(d.Type)
 
 				vPtr := &ir.Global{
@@ -637,7 +637,7 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 				e.varGlTypes[d.Name] = d.Type
 			}
 
-			for _, d := range structDefns {
+			for _, d := range ip.structDefns {
 				typ := &types.StructType{
 					TypeName: d.Name,
 				}
@@ -650,7 +650,14 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 				e.m.NewTypeDef(d.Name, typ)
 			}
 
-			for _, d := range declares {
+			for _, d := range ip.externStructDefns {
+				// TODO: abstract this from emit extern struct stmt
+				typ := &types.StructType{TypeName: d, Opaque: true}
+				e.structTypes[d] = typ
+				e.m.NewTypeDef(d, typ)
+			}
+
+			for _, d := range ip.declares {
 				var params []*ir.Param
 				for _, p := range d.ParamTypes {
 					params = append(params, ir.NewParam("", e.varTypeToLlvm(p)))
