@@ -1,0 +1,9 @@
+extern fnc strlen(char* s) -> uint
+extern fnc memcpy(char* dest, char* src, uint n) -> char*
+
+fnc dynstr(char* in) -> char* {
+    def uint len = strlen(in);
+    def char* new = malloc((len+1) * sizeof(char));
+    memcpy(new, in, len+1);
+    return new;
+}
