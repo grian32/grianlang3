@@ -8,6 +8,7 @@ import (
 	"grianlang3/emitter"
 	"grianlang3/lexer"
 	"grianlang3/parser"
+	"grianlang3/util"
 	"log"
 	"os"
 	"os/exec"
@@ -78,7 +79,7 @@ func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
 		}
 		llvmIr := e.Module()
 
-		_, fileName, _ := strings.Cut(fmt.Sprintf("%s-*.ll", file), "/")
+		fileName := util.GetFileNamePath(fmt.Sprintf("%s-*.ll", file))
 		llFile, err := os.CreateTemp("", fileName)
 		if err != nil {
 			return fmt.Errorf("%s: %w\n", file, err)
