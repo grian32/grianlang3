@@ -3,8 +3,8 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"grianlang3/lexer"
-	"grianlang3/util"
+	"gl3/lexer"
+	"gl3/util"
 	"os"
 	"os/exec"
 	"regexp"

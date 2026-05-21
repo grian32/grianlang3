@@ -2,9 +2,9 @@ package emitter
 
 import (
 	"fmt"
-	"grianlang3/lexer"
-	"grianlang3/parser"
-	"grianlang3/util"
+	"gl3/lexer"
+	"gl3/parser"
+	"gl3/util"
 	"os"
 	"strings"
 

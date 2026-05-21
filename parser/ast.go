@@ -3,8 +3,8 @@ package parser
 import (
 	"bytes"
 	"fmt"
-	"grianlang3/lexer"
-	"grianlang3/util"
+	"gl3/lexer"
+	"gl3/util"
 	"strconv"
 	"strings"
 )

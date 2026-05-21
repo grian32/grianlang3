@@ -1,9 +1,31 @@
-extern fnc strlen(char* s) -> uint
-extern fnc memcpy(char* dest, char* src, uint n) -> char*
+private extern fnc strlen(char* s) -> uint
+private extern fnc memcpy(char* dest, char* src, uint n) -> char*
+private extern fnc malloc(uint len) -> char*
+private extern fnc free(char* a) -> none
+
+// TODO: own strlen
 
 fnc dynstr(char* in) -> char* {
     def uint len = strlen(in);
     def char* new = malloc((len+1) * sizeof(char));
     memcpy(new, in, len+1);
     return new;
+}
+
+fnc str_append(char* a, char* b) -> char* {
+    def uint a_len = strlen(a);
+    def uint b_len = strlen(b);
+    def uint new_len = a_len + b_len + 1;
+    def char* new = malloc(new_len);
+    memcpy(new, a, a_len);
+    memcpy(new + a_len, b, b_len + 1);
+    return new;
+}
+
+fnc str_len(char* a) -> uint {
+    return strlen(a);
+}
+
+fnc str_free(char* a) -> none {
+    free(a);
 }

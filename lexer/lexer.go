@@ -1,7 +1,7 @@
 package lexer
 
 import (
-	"grianlang3/util"
+	"gl3/util"
 )
 
 type Lexer struct {

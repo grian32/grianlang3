@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"grianlang3/lexer"
+	"gl3/lexer"
 	"strings"
 	"testing"
 	"time"

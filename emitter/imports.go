@@ -1,8 +1,8 @@
 package emitter
 
 import (
-	"grianlang3/lexer"
-	"grianlang3/parser"
+	"gl3/lexer"
+	"gl3/parser"
 )
 
 type Declare struct {

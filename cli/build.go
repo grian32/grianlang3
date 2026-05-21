@@ -4,11 +4,11 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"grianlang3/checker"
-	"grianlang3/emitter"
-	"grianlang3/lexer"
-	"grianlang3/parser"
-	"grianlang3/util"
+	"gl3/checker"
+	"gl3/emitter"
+	"gl3/lexer"
+	"gl3/parser"
+	"gl3/util"
 	"log"
 	"os"
 	"os/exec"
@@ -37,96 +37,32 @@ func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		l := lexer.New(string(input))
-		p := parser.New(l)
-		program := p.ParseProgram()
-		err = safeRun(func() {
-			if opts.Dbg {
-				log.Printf("%s: %s\n", file, program.String())
-			}
-		})
+		llFile, fileModules, err := compileGl3File(input, file, opts)
 		if err != nil {
 			return err
 		}
-		if len(p.Errors) != 0 {
-			for _, err := range p.Errors {
-				log.Printf("parser error: %s:%s\n", file, err.String())
-			}
-			return fmt.Errorf("%s: exiting after parser errrors\n", file)
-		}
-		c := checker.New()
-		c.Check(program)
-		if len(c.Errors) != 0 {
-			for _, err := range c.Errors {
-				log.Printf("checker warning: %s:%s\n", file, err.String())
-			}
-		}
+		llFiles = append(llFiles, llFile)
 
-		e := emitter.New()
-		err = safeRun(func() {
-			e.Emit(program)
-		})
-		if len(e.Errors) != 0 {
-			for _, err := range e.Errors {
-				log.Printf("compiler error: %s:%s\n", file, err.String())
-			}
-			return fmt.Errorf("compiler errors\n")
-		}
-		if err != nil {
-			log.Printf("%s: recovered emitting llvm ir: %s\n", file, err)
-			return fmt.Errorf("compiler panic\n")
-		}
-		llvmIr := e.Module()
-
-		fileName := util.GetFileNamePath(fmt.Sprintf("%s-*.ll", file))
-		llFile, err := os.CreateTemp("", fileName)
-		if err != nil {
-			return fmt.Errorf("%s: %w\n", file, err)
-		}
-		_, err = fmt.Fprintf(llFile, "%s", llvmIr)
-		if err != nil {
-			return fmt.Errorf("%s: %w\n", file, err)
-		}
-		if opts.Dbg {
-			fmt.Printf("%s llvm ir: %s", file, llvmIr)
-		}
-		err = llFile.Close()
-		if err != nil {
-			return fmt.Errorf("%s: %w\n", file, err)
-		}
-
-		llFiles = append(llFiles, llFile.Name())
-
-		for _, builtinModule := range e.BuiltinModules() {
+		for _, builtinModule := range fileModules {
 			builtinModules[builtinModule] = struct{}{}
 		}
 	}
 
 	for mod, _ := range builtinModules {
-		// kinda dodgy fix but realistically its going to be one or two modules that vendor c stuff directly so no point bothering
-		if mod == "ralloc.ll" {
-			continue
-		}
-		modText, err := builtinFs.ReadFile(fmt.Sprintf("builtins/%s", mod))
+		builtinOpts := opts
+		// enable optis
+		builtinOpts.O3 = true
+		builtinOpts.O1 = false
+		builtinOpts.O2 = false
+		input, err := builtinFs.ReadFile("builtins/" + mod)
 		if err != nil {
-			return fmt.Errorf("failed to read %s from builtin fs: %w\n", mod, err)
+			log.Fatal(err)
 		}
-
-		fileName := fmt.Sprintf("*%s", mod)
-		llFile, err := os.CreateTemp("", fileName)
+		llFile, _, err := compileGl3File(input, "builtins/"+mod, builtinOpts)
 		if err != nil {
-			return fmt.Errorf("failed to create %s: %w\n", llFile.Name(), err)
+			return err
 		}
-		_, err = fmt.Fprintf(llFile, "%s", modText)
-		if err != nil {
-			return fmt.Errorf("failed to write %s: %w\n", llFile.Name(), err)
-		}
-		err = llFile.Close()
-		if err != nil {
-			return fmt.Errorf("failed to close %s: %w\n", llFile.Name(), err)
-		}
-		llFiles = append(llFiles, llFile.Name())
+		llFiles = append(llFiles, llFile)
 	}
 
 	llFiles = append(llFiles, "-o", opts.Output)
@@ -164,4 +100,66 @@ func safeRun(fn func()) (err error) {
 	}()
 	fn()
 	return nil
+}
+
+func compileGl3File(input []byte, file string, opts *BuildOpts) (string, []string, error) {
+	l := lexer.New(string(input))
+	p := parser.New(l)
+	program := p.ParseProgram()
+	err := safeRun(func() {
+		if opts.Dbg {
+			log.Printf("%s: %s\n", file, program.String())
+		}
+	})
+	if err != nil {
+		return "", nil, err
+	}
+	if len(p.Errors) != 0 {
+		for _, err := range p.Errors {
+			log.Printf("parser error: %s:%s\n", file, err.String())
+		}
+		return "", nil, fmt.Errorf("%s: exiting after parser errrors\n", file)
+	}
+	c := checker.New()
+	c.Check(program)
+	if len(c.Errors) != 0 {
+		for _, err := range c.Errors {
+			log.Printf("checker warning: %s:%s\n", file, err.String())
+		}
+	}
+
+	e := emitter.New()
+	err = safeRun(func() {
+		e.Emit(program)
+	})
+	if len(e.Errors) != 0 {
+		for _, err := range e.Errors {
+			log.Printf("compiler error: %s:%s\n", file, err.String())
+		}
+		return "", nil, fmt.Errorf("compiler errors\n")
+	}
+	if err != nil {
+		log.Printf("%s: recovered emitting llvm ir: %s\n", file, err)
+		return "", nil, fmt.Errorf("compiler panic\n")
+	}
+	llvmIr := e.Module()
+
+	fileName := util.GetFileNamePath(fmt.Sprintf("%s-*.ll", file))
+	llFile, err := os.CreateTemp("", fileName)
+	if err != nil {
+		return "", nil, fmt.Errorf("%s: %w\n", file, err)
+	}
+	_, err = fmt.Fprintf(llFile, "%s", llvmIr)
+	if err != nil {
+		return "", nil, fmt.Errorf("%s: %w\n", file, err)
+	}
+	if opts.Dbg {
+		fmt.Printf("%s llvm ir: %s", file, llvmIr)
+	}
+	err = llFile.Close()
+	if err != nil {
+		return "", nil, fmt.Errorf("%s: %w\n", file, err)
+	}
+
+	return llFile.Name(), e.BuiltinModules(), nil
 }

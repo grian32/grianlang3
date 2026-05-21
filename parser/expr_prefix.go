@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"grianlang3/lexer"
-	"grianlang3/util"
+	"gl3/lexer"
+	"gl3/util"
 )
 
 func (p *Parser) parsePrefixExpression() Expression {

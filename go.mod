@@ -1,4 +1,4 @@
-module grianlang3
+module gl3
 
 go 1.25.5
 

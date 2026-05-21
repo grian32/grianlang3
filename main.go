@@ -3,14 +3,14 @@ package main
 import (
 	"context"
 	"embed"
-	"grianlang3/cli"
+	"gl3/cli"
 	"os"
 
 	"github.com/charmbracelet/fang"
 	"github.com/spf13/cobra"
 )
 
-//go:embed builtins/*.ll
+//go:embed builtins/*.gl3
 var builtinFs embed.FS
 
 func main() {

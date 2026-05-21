@@ -2,7 +2,7 @@ package emitter
 
 import (
 	"fmt"
-	"grianlang3/lexer"
+	"gl3/lexer"
 
 	_ "embed"
 
@@ -97,7 +97,7 @@ func AddBuiltinModule(e *Emitter, moduleName string) error {
 		e.functions[name] = fnc
 		e.functionGlReturnTypes[name] = typing.RetGlType
 	}
-	e.builtinModules = append(e.builtinModules, fmt.Sprintf("%s.ll", moduleName))
+	e.builtinModules = append(e.builtinModules, fmt.Sprintf("%s.gl3", moduleName))
 
 	return nil
 }
