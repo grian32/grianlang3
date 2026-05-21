@@ -7,18 +7,18 @@ private extern fnc free(char* a) -> none
 
 fnc dynstr(char* in) -> char* {
     def uint len = strlen(in);
-    def char* new = malloc((len+1) * sizeof(char));
-    memcpy(new, in, len+1);
+    def char* new = malloc(len+1u64);
+    memcpy(new, in, len+1u64);
     return new;
 }
 
 fnc str_append(char* a, char* b) -> char* {
     def uint a_len = strlen(a);
     def uint b_len = strlen(b);
-    def uint new_len = a_len + b_len + 1;
+    def uint new_len = a_len + b_len + 1u64;
     def char* new = malloc(new_len);
     memcpy(new, a, a_len);
-    memcpy(new + a_len, b, b_len + 1);
+    memcpy(new + a_len, b, b_len + 1u64);
     return new;
 }
 
