@@ -36,8 +36,8 @@ func main() {
 	buildCmd.Flags().BoolVar(&buildOpts.Shared, "shared", false, "Compiles the code as a shared library")
 	buildCmd.Flags().StringVarP(&buildOpts.Output, "output", "o", "./out", "Changes the name of the output executable")
 	buildCmd.Flags().BoolVar(&buildOpts.O1, "O1", false, "Compiles the code with optimization level 1")
-	buildCmd.Flags().BoolVar(&buildOpts.O2, "O2", false, "Compiles the code with optimization level 1")
-	buildCmd.Flags().BoolVar(&buildOpts.O3, "O3", false, "Compiles the code with optimization level 1")
+	buildCmd.Flags().BoolVar(&buildOpts.O2, "O2", false, "Compiles the code with optimization level 2")
+	buildCmd.Flags().BoolVar(&buildOpts.O3, "O3", false, "Compiles the code with optimization level 3")
 
 	var exDefOpts cli.ExDefOpts
 	exDefCmd := &cobra.Command{
