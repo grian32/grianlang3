@@ -1,6 +1,6 @@
 # GL3
 
-GL3 is an LLVM-based compiled systems programming language. The compiler is written in Go and uses the llir/llvm library for code generation.
+GL3 is an LLVM-based compiler for a systems programming language. The compiler is written in Go and uses the llir/llvm library for code generation.
 
 ## Philosophy
 
