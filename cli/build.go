@@ -26,6 +26,9 @@ type BuildOpts struct {
 }
 
 func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
+	if len(files) == 0 {
+		return errors.New("no input files provided")
+	}
 	if opts.O1 && opts.O2 || opts.O1 && opts.O3 || opts.O2 && opts.O3 {
 		return errors.New("multiple optimization level arguments not allowed, please use either --O1, --O2, --O3")
 	}
@@ -35,7 +38,7 @@ func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
 	for _, file := range files {
 		input, err := os.ReadFile(file)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 		llFile, fileModules, err := compileGl3File(input, file, opts)
 		if err != nil {
@@ -56,7 +59,7 @@ func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
 		builtinOpts.O2 = false
 		input, err := builtinFs.ReadFile("builtins/" + mod)
 		if err != nil {
-			log.Fatal(err)
+			return fmt.Errorf("reading builtin module: %w", err)
 		}
 		llFile, _, err := compileGl3File(input, "builtins/"+mod, builtinOpts)
 		if err != nil {
@@ -118,7 +121,7 @@ func compileGl3File(input []byte, file string, opts *BuildOpts) (string, []strin
 		for _, err := range p.Errors {
 			log.Printf("parser error: %s:%s\n", file, err.String())
 		}
-		return "", nil, fmt.Errorf("%s: exiting after parser errrors\n", file)
+		return "", nil, fmt.Errorf("%s: exiting after parser errors\n", file)
 	}
 	c := checker.New()
 	c.Check(program)
