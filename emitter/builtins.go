@@ -97,7 +97,7 @@ func AddBuiltinModule(e *Emitter, moduleName string) error {
 		e.functions[name] = fnc
 		e.functionGlReturnTypes[name] = typing.RetGlType
 	}
-	e.builtinModules = append(e.builtinModules, fmt.Sprintf("%s.gl3", moduleName))
+	e.builtinModules = append(e.builtinModules, moduleName)
 
 	return nil
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-//go:embed builtins/*.gl3
+//go:embed builtins/*.gl3 builtins/*.ll
 var builtinFs embed.FS
 
 func main() {

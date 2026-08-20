@@ -9,6 +9,7 @@ import (
 	"gl3/lexer"
 	"gl3/parser"
 	"gl3/util"
+	"io/fs"
 	"log"
 	"os"
 	"os/exec"
@@ -54,11 +55,19 @@ func RunBuildCmd(builtinFs embed.FS, files []string, opts *BuildOpts) error {
 		builtinOpts.O3 = true
 		builtinOpts.O1 = false
 		builtinOpts.O2 = false
-		input, err := builtinFs.ReadFile("builtins/" + mod)
-		if err != nil {
+		input, err := builtinFs.ReadFile("builtins/" + mod + ".gl3")
+		if errors.Is(err, fs.ErrNotExist) {
+			input, err = builtinFs.ReadFile("builtins/" + mod + ".ll")
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			llFiles = append(llFiles, "builtins/"+mod+".ll")
+			continue
+		} else if err != nil {
 			log.Fatal(err)
 		}
-		llFile, _, err := compileGl3File(input, "builtins/"+mod, builtinOpts)
+		llFile, _, err := compileGl3File(input, "builtins/"+mod+".gl3", builtinOpts)
 		if err != nil {
 			return err
 		}
