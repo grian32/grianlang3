@@ -73,11 +73,8 @@ func (l *Lexer) NextToken() Token {
 			for l.ch != '\n' && l.ch != 0 {
 				l.readChar()
 			}
-			if l.ch == '\n' {
-				l.currLine++
-				l.currCh = 0
-				l.readChar()
-			}
+
+			continue
 		}
 
 		break
