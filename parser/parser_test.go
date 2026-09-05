@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"gl3/lexer"
 	"strings"
 	"testing"
@@ -69,6 +70,45 @@ func TestLiterals(t *testing.T) {
 	}
 
 	runTests(t, tests)
+}
+
+func TestIntegerBoundaryValues(t *testing.T) {
+	tests := []struct {
+		input string
+		kind  lexer.VarType
+		value uint64
+	}{
+		{"0", lexer.VarType{Base: lexer.Int}, 0},
+		{"9223372036854775807", lexer.VarType{Base: lexer.Int}, 9223372036854775807},
+		{"0u64", lexer.VarType{Base: lexer.Uint}, 0},
+		{"9223372036854775808u64", lexer.VarType{Base: lexer.Uint}, 9223372036854775808},
+		{"18446744073709551615u64", lexer.VarType{Base: lexer.Uint}, 18446744073709551615},
+		{"255u8", lexer.VarType{Base: lexer.Uint8}, 255},
+		{"65535u16", lexer.VarType{Base: lexer.Uint16}, 65535},
+		{"4294967295u32", lexer.VarType{Base: lexer.Uint32}, 4294967295},
+	}
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			stmt := parseSingleStatement(t, test.input)
+			es, ok := stmt.(*ExpressionStatement)
+			if !ok {
+				t.Fatalf("expected expression, got %T", stmt)
+			}
+			lit, ok := es.Expression.(*IntegerLiteral)
+			if !ok {
+				t.Fatalf("expected integer, got %T", es.Expression)
+			}
+			if lit.Type != test.kind {
+				t.Fatalf("want type %v, got %v", test.kind, lit.Type)
+			}
+			if lit.UValue != test.value {
+				t.Fatalf("want value %d, got %d", test.value, lit.UValue)
+			}
+			if test.kind.Base == lexer.Int && lit.Value != int64(test.value) {
+				t.Fatalf("wrong signed value: %d", lit.Value)
+			}
+		})
+	}
 }
 
 func TestDefStatement(t *testing.T) {
@@ -182,6 +222,87 @@ func TestFuncStatement(t *testing.T) {
 	runTests(t, tests)
 }
 
+func TestPrivateAndExternDeclarations(t *testing.T) {
+	for _, private := range []bool{false, true} {
+		prefix := ""
+		if private {
+			prefix = "private "
+		}
+		for _, external := range []bool{false, true} {
+			input := prefix
+			if external {
+				input += "extern "
+			}
+			input += "fnc f(Node** p, int count) -> char*"
+			if !external {
+				input += " { return p }"
+			}
+			t.Run(input, func(t *testing.T) {
+				stmt := parseSingleStatement(t, input)
+				var params []FunctionParameter
+				var ret lexer.VarType
+				if external {
+					f, ok := stmt.(*ExternFunctionStatement)
+					if !ok {
+						t.Fatalf("expected extern function, got %T", stmt)
+					}
+					if f.Name != "f" || f.Private != private {
+						t.Fatalf("wrong name/privacy: %+v", f)
+					}
+					params, ret = f.Params, f.ReturnType
+				} else {
+					f, ok := stmt.(*FunctionStatement)
+					if !ok {
+						t.Fatalf("expected function, got %T", stmt)
+					}
+					if f.Name.Value != "f" || f.Private != private {
+						t.Fatalf("wrong name/privacy: %+v", f)
+					}
+					params, ret = f.Params, f.Type
+					if len(f.Body.Statements) != 1 {
+						t.Fatalf("expected one body statement")
+					}
+					if _, ok := f.Body.Statements[0].(*ReturnStatement); !ok {
+						t.Fatalf("expected return statement")
+					}
+				}
+				if ret != (lexer.VarType{Base: lexer.Char, Pointer: 1}) {
+					t.Errorf("wrong return type: %v", ret)
+				}
+				if len(params) != 2 {
+					t.Fatalf("expected 2 parameters, got %d", len(params))
+				}
+				if params[0].Name.Value != "p" || params[0].Type != (lexer.VarType{IsStructType: true, StructName: "Node", Pointer: 2}) {
+					t.Errorf("wrong first parameter: %+v", params[0])
+				}
+				if params[1].Name.Value != "count" || params[1].Type != (lexer.VarType{Base: lexer.Int}) {
+					t.Errorf("wrong second parameter: %+v", params[1])
+				}
+			})
+		}
+		t.Run(prefix+"extern struct", func(t *testing.T) {
+			stmt := parseSingleStatement(t, prefix+"extern struct Node")
+			s, ok := stmt.(*ExternStructStatement)
+			if !ok {
+				t.Fatalf("expected extern struct, got %T", stmt)
+			}
+			if s.Name != "Node" || s.Private != private {
+				t.Fatalf("wrong name/privacy: %+v", s)
+			}
+		})
+		t.Run(prefix+"extern empty function", func(t *testing.T) {
+			stmt := parseSingleStatement(t, prefix+"extern fnc empty() -> none")
+			f, ok := stmt.(*ExternFunctionStatement)
+			if !ok {
+				t.Fatalf("expected extern function, got %T", stmt)
+			}
+			if f.Name != "empty" || f.Private != private || len(f.Params) != 0 || f.ReturnType != (lexer.VarType{Base: lexer.Void}) {
+				t.Fatalf("wrong empty declaration: %+v", f)
+			}
+		})
+	}
+}
+
 func TestImportStatement(t *testing.T) {
 	tests := map[string]InputOutput{
 		"std module": {
@@ -265,6 +386,30 @@ func TestWhileStatement(t *testing.T) {
 	}
 
 	runTests(t, tests)
+}
+
+func TestLoopControlStatements(t *testing.T) {
+	for _, separator := range []string{"\n", ";"} {
+		t.Run(separator, func(t *testing.T) {
+			stmt := parseSingleStatement(t, "while true { continue"+separator+"break"+separator+"sentinel() }")
+			loop, ok := stmt.(*WhileStatement)
+			if !ok {
+				t.Fatalf("expected while, got %T", stmt)
+			}
+			if len(loop.Body.Statements) != 3 {
+				t.Fatalf("expected 3 statements, got %d", len(loop.Body.Statements))
+			}
+			if _, ok := loop.Body.Statements[0].(*ContinueStatement); !ok {
+				t.Errorf("expected continue, got %T", loop.Body.Statements[0])
+			}
+			if _, ok := loop.Body.Statements[1].(*BreakStatement); !ok {
+				t.Errorf("expected break, got %T", loop.Body.Statements[1])
+			}
+			if got := statementExpressionShape(t, loop.Body.Statements[2]); got != "call(sentinel)" {
+				t.Errorf("following statement changed: %s", got)
+			}
+		})
+	}
 }
 
 func TestInfixExpression(t *testing.T) {
@@ -360,10 +505,24 @@ func TestPrecedenceExpression(t *testing.T) {
 			"1 + 2 < 3 == 4",
 			"(((1(Int) + 2(Int)) < 3(Int)) == 4(Int));",
 		},
-		// Cast, sizeof, and postfix interactions have structural assertions in precedence_test.go.
+		// Cast, sizeof, and postfix interactions have structural assertions below.
 	}
 
 	runTests(t, tests)
+}
+
+func TestExpressionAssociativityAndPostfix(t *testing.T) {
+	tests := []InputOutput{
+		{"a - b - c", "-(-(a, b), c)"},
+		{"a / b * c", "*(/(a, b), c)"},
+		{"a = b = c", "assign(a, assign(b, c))"},
+		{"a || b && c", "||(a, &&(b, c))"},
+		{"a && b || c", "||(&&(a, b), c)"},
+		{"-f(a)[i]", "prefix(-, deref(+(call(f, a), i)))"},
+		{"items[i][j]", "deref(+(deref(+(items, i)), j))"},
+		{"items[i].field", ".(deref(+(items, i)), field)"},
+	}
+	runExpressionShapeTests(t, tests)
 }
 
 func TestAssignmentExpression(t *testing.T) {
@@ -402,6 +561,50 @@ func TestCastExpression(t *testing.T) {
 	}
 
 	runTests(t, tests)
+}
+
+func TestCastPrecedence(t *testing.T) {
+	tests := []InputOutput{
+		{"a + b as float", "cast(Float, +(a, b))"},
+		{"a + (b as float)", "+(a, cast(Float, b))"},
+		{"a as float + b", "+(cast(Float, a), b)"},
+		{"a as float + b as float", "cast(Float, +(cast(Float, a), b))"},
+		{"a as float + (b as float)", "+(cast(Float, a), cast(Float, b))"},
+		{"(a + b) as float", "cast(Float, +(a, b))"},
+		{"a * b as float", "cast(Float, *(a, b))"},
+		{"a * (b as float)", "*(a, cast(Float, b))"},
+		{"(a as float) * b", "*(cast(Float, a), b)"},
+		{"a as float / b", "/(cast(Float, a), b)"},
+		{"a / b as float", "cast(Float, /(a, b))"},
+		{"a < b as int", "<(a, cast(Int, b))"},
+		{"a as int < b", "<(cast(Int, a), b)"},
+		{"a == b as int", "==(a, cast(Int, b))"},
+		{"a as int == b", "==(cast(Int, a), b)"},
+		{"a && b as bool", "&&(a, cast(Bool, b))"},
+		{"a as bool || b", "||(cast(Bool, a), b)"},
+		{"-a as float", "cast(Float, prefix(-, a))"},
+		{"-(a as float)", "prefix(-, cast(Float, a))"},
+		{"!a as bool", "cast(Bool, prefix(!, a))"},
+		{"!(a as bool)", "prefix(!, cast(Bool, a))"},
+		{"*p as int", "cast(Int, deref(p))"},
+		{"*p as int*", "cast(Int*, deref(p))"},
+		{"*(p as int*)", "deref(cast(Int*, p))"},
+		{"(&a) as int", "cast(Int, ref(a))"},
+		{"a as int32 as float", "cast(Float, cast(Int32, a))"},
+		{"p as Node**", "cast(Node**, p)"},
+		{"f(a) as int", "cast(Int, call(f, a))"},
+		{"f(a as int, b)", "call(f, cast(Int, a), b)"},
+		{"items[i] as int", "cast(Int, deref(+(items, i)))"},
+		{"(p as int*)[i]", "deref(+(cast(Int*, p), i))"},
+		{"p as int*[i]", "deref(+(cast(Int*, p), i))"},
+		{"p.field as int", "cast(Int, .(p, field))"},
+		{"(p as Node*).field", ".(cast(Node*, p), field)"},
+		{"p as Node*.field", ".(cast(Node*, p), field)"},
+		{"f(a)[i] as int", "cast(Int, deref(+(call(f, a), i)))"},
+		{"p = malloc(sizeof Node) as Node*", "assign(p, cast(Node*, call(malloc, sizeof(Node))))"},
+		{"a = b as int + c", "assign(a, +(cast(Int, b), c))"},
+	}
+	runExpressionShapeTests(t, tests)
 }
 
 func TestPrefixExpression(t *testing.T) {
@@ -485,6 +688,59 @@ func TestSizeofExpression(t *testing.T) {
 	runTests(t, tests)
 }
 
+func TestSizeofPrecedence(t *testing.T) {
+	tests := []InputOutput{
+		{"sizeof Node", "sizeof(Node)"},
+		{"sizeof Node**", "sizeof(Node**)"},
+		{"sizeof int32**", "sizeof(Int32**)"},
+		// Whitespace does not turn pointer stars into multiplication operators.
+		{"sizeof int32 *", "sizeof(Int32*)"},
+		{"sizeof int32 * *", "sizeof(Int32**)"},
+		{"(sizeof int32) * n", "*(sizeof(Int32), n)"},
+		{"(sizeof int32*) * n", "*(sizeof(Int32*), n)"},
+		{"n * sizeof int32", "*(n, sizeof(Int32))"},
+		{"sizeof int32 / n", "/(sizeof(Int32), n)"},
+		{"sizeof int32 + n", "+(sizeof(Int32), n)"},
+		{"n + sizeof int32", "+(n, sizeof(Int32))"},
+		{"sizeof int32 < n", "<(sizeof(Int32), n)"},
+		{"-sizeof int32", "prefix(-, sizeof(Int32))"},
+		{"sizeof int32 as uint", "cast(Uint, sizeof(Int32))"},
+		{"sizeof int32 + n as uint", "cast(Uint, +(sizeof(Int32), n))"},
+		{"malloc((sizeof Node) * n) as Node*", "cast(Node*, call(malloc, *(sizeof(Node), n)))"},
+		{"f(sizeof Node*, n as int, sizeof char)", "call(f, sizeof(Node*), cast(Int, n), sizeof(Char))"},
+	}
+	runExpressionShapeTests(t, tests)
+}
+
+func TestTypeStarsConsumeFollowingAsterisks(t *testing.T) {
+	// A star following a type is a pointer suffix, even with spaces. These
+	// inputs currently leave n as a separate statement; they do not multiply.
+	// This characterizes token consumption, not a recommended way to write code.
+	tests := []InputOutput{
+		{"sizeof int32 * n", "sizeof(Int32*)"},
+		{"sizeof int32* * n", "sizeof(Int32**)"},
+		{"p as int32 * n", "cast(Int32*, p)"},
+	}
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			p := New(lexer.New(test.input))
+			program := p.ParseProgram()
+			if len(p.Errors) != 0 {
+				t.Fatalf("parser errors: %v", p.Errors)
+			}
+			if len(program.Statements) != 2 {
+				t.Fatalf("expected type expression and trailing identifier, got %d statements", len(program.Statements))
+			}
+			if got := statementExpressionShape(t, program.Statements[0]); got != test.output {
+				t.Fatalf("want: %s; got: %s", test.output, got)
+			}
+			if got := statementExpressionShape(t, program.Statements[1]); got != "n" {
+				t.Fatalf("expected trailing n, got %s", got)
+			}
+		})
+	}
+}
+
 func TestStructInitializationExpression(t *testing.T) {
 	tests := map[string]InputOutput{
 		"basic init": {
@@ -550,6 +806,21 @@ func TestReferenceAndDereferenceExpression(t *testing.T) {
 	runTests(t, tests)
 }
 
+func TestPointerPrefixPrecedence(t *testing.T) {
+	runExpressionShapeTests(t, []InputOutput{
+		{"&x as int", "cast(Int, ref(x))"},
+		{"(&x) as int", "cast(Int, ref(x))"},
+		{"&x + n", "+(ref(x), n)"},
+		{"(&x) + n", "+(ref(x), n)"},
+		{"*p[i]", "deref(deref(+(p, i)))"},
+		{"*(p[i])", "deref(deref(+(p, i)))"},
+		{"(*p)[i]", "deref(+(deref(p), i))"},
+		{"*p.field", "deref(.(p, field))"},
+		{"*(p.field)", "deref(.(p, field))"},
+		{"(*p).field", ".(deref(p), field)"},
+	})
+}
+
 func TestStructStatement(t *testing.T) {
 	tests := map[string]struct {
 		input  string
@@ -586,18 +857,10 @@ func TestStructStatement(t *testing.T) {
 					t.Errorf("panicked: %v", r)
 				}
 			}()
-			l := lexer.New(test.input)
-			p := New(l)
-			program := p.ParseProgram()
-			if len(p.Errors) != 0 {
-				t.Fatalf("got parser errors: %v", p.Errors)
-			}
-			if len(program.Statements) != 1 {
-				t.Fatalf("expected 1 statement, got %d", len(program.Statements))
-			}
-			stmt, ok := program.Statements[0].(*StructStatement)
+			statement := parseSingleStatement(t, test.input)
+			stmt, ok := statement.(*StructStatement)
 			if !ok {
-				t.Fatalf("expected StructStatement, got %T", program.Statements[0])
+				t.Fatalf("expected StructStatement, got %T", statement)
 			}
 			if stmt.Name != test.name {
 				t.Fatalf("expected struct name %q, got %q", test.name, stmt.Name)
@@ -621,6 +884,27 @@ func TestStructStatement(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestStructDeclarationFieldOrder(t *testing.T) {
+	stmt := parseSingleStatement(t, "struct Ordered { int z char* a Node** middle }")
+	s, ok := stmt.(*StructStatement)
+	if !ok {
+		t.Fatalf("expected struct, got %T", stmt)
+	}
+	names := []string{"z", "a", "middle"}
+	types := []lexer.VarType{{Base: lexer.Int}, {Base: lexer.Char, Pointer: 1}, {IsStructType: true, StructName: "Node", Pointer: 2}}
+	if len(s.Names) != len(names) || len(s.Types) != len(types) {
+		t.Fatalf("wrong field count: %+v", s)
+	}
+	for i, name := range names {
+		if index, ok := s.Names[name]; !ok || index != i {
+			t.Errorf("field %s must have index %d, got %d (present=%v)", name, i, index, ok)
+		}
+		if s.Types[i] != types[i] {
+			t.Errorf("field %d: want %v, got %v", i, types[i], s.Types[i])
+		}
 	}
 }
 
@@ -694,6 +978,38 @@ func TestTypeParseErrorReporting(t *testing.T) {
 			input:       "[; 1]",
 			errorSubstr: "expected type after [ in array literal expr",
 		},
+	}
+
+	runErrorTests(t, tests)
+}
+
+func TestMalformedParserInput(t *testing.T) {
+	tests := map[string]struct {
+		input       string
+		errorSubstr string
+	}{
+		"missing index bracket":       {"a[1", "]"},
+		"missing call paren":          {"f(a", ")"},
+		"missing grouping paren":      {"(a + b", ""},
+		"missing function brace":      {"fnc f() -> none { f()", ""},
+		"missing if brace":            {"if true { f()", ""},
+		"missing while brace":         {"while true { f()", ""},
+		"missing struct brace":        {"struct S { int x", ""},
+		"missing initializer brace":   {"S:{a", ""},
+		"missing array bracket":       {"[int; a", "]"},
+		"missing binary operand":      {"a +", "no prefix"},
+		"missing prefix operand":      {"!", "no prefix"},
+		"missing assignment operand":  {"a =", "no prefix"},
+		"missing reference operand":   {"&", ""},
+		"missing dereference operand": {"*", "no prefix"},
+		"literal assignment target":   {"1 = x", "lhs of assignment"},
+		"sum assignment target":       {"(a + b) = x", "lhs of assignment"},
+		"call assignment target":      {"f() = x", "lhs of assignment"},
+		"unsupported field reference": {"&p.field", ""},
+		"unknown integer suffix":      {"1u128", ""},
+		"misspelled integer suffix":   {"1i33", ""},
+		"signed overflow":             {"9223372036854775808", "integer"},
+		"unsigned overflow":           {"18446744073709551616u64", "unsigned integer"},
 	}
 
 	runErrorTests(t, tests)
@@ -818,5 +1134,107 @@ func runTests(t *testing.T, tests map[string]InputOutput) {
 			case <-done:
 			}
 		})
+	}
+}
+
+func parseSingleStatement(t *testing.T, input string) Statement {
+	t.Helper()
+	p := New(lexer.New(input))
+	program := p.ParseProgram()
+	if len(p.Errors) != 0 {
+		t.Fatalf("parser errors: %v", p.Errors)
+	}
+	if len(program.Statements) != 1 {
+		t.Fatalf("expected one statement, got %d", len(program.Statements))
+	}
+	return program.Statements[0]
+}
+
+func runExpressionShapeTests(t *testing.T, tests []InputOutput) {
+	t.Helper()
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			// Exercise EOF and block/semicolon boundaries, including the next
+			// statement so a parser cannot silently swallow trailing tokens.
+			for _, inFunction := range []bool{false, true} {
+				name, input := "standalone", test.input
+				if inFunction {
+					name = "function_body"
+					input = "fnc probe() -> none { " + input + "; sentinel() }"
+				}
+				t.Run(name, func(t *testing.T) {
+					p := New(lexer.New(input))
+					program := p.ParseProgram()
+					if len(p.Errors) != 0 {
+						t.Fatalf("parser errors: %v", p.Errors)
+					}
+					if len(program.Statements) != 1 {
+						t.Fatalf("expected one top-level statement, got %d", len(program.Statements))
+					}
+					stmt := program.Statements[0]
+					if inFunction {
+						fn, ok := stmt.(*FunctionStatement)
+						if !ok {
+							t.Fatalf("expected function, got %T", stmt)
+						}
+						if len(fn.Body.Statements) != 2 {
+							t.Fatalf("expected expression and sentinel, got %d statements", len(fn.Body.Statements))
+						}
+						if got := statementExpressionShape(t, fn.Body.Statements[1]); got != "call(sentinel)" {
+							t.Fatalf("following statement changed: %s", got)
+						}
+						stmt = fn.Body.Statements[0]
+					}
+					if got := statementExpressionShape(t, stmt); got != test.output {
+						t.Fatalf("input: %s\nwant: %s\n got: %s", input, test.output, got)
+					}
+				})
+			}
+		})
+	}
+}
+
+func statementExpressionShape(t *testing.T, stmt Statement) string {
+	t.Helper()
+	expr, ok := stmt.(*ExpressionStatement)
+	if !ok {
+		t.Fatalf("expected expression statement, got %T", stmt)
+	}
+	return expressionShape(t, expr.Expression)
+}
+
+// Preserve node grouping that Expression.String() omits for casts and dereferences.
+func expressionShape(t *testing.T, expr Expression) string {
+	t.Helper()
+	shape := func(e Expression) string { return expressionShape(t, e) }
+	switch e := expr.(type) {
+	case *IdentifierExpression:
+		return e.Value
+	case *InfixExpression:
+		return fmt.Sprintf("%s(%s, %s)", e.Operator, shape(e.Left), shape(e.Right))
+	case *CastExpression:
+		return fmt.Sprintf("cast(%s, %s)", e.Type.String(), shape(e.Expr))
+	case *SizeofExpression:
+		return "sizeof(" + e.Type.String() + ")"
+	case *PrefixExpression:
+		return fmt.Sprintf("prefix(%s, %s)", e.Operator, shape(e.Right))
+	case *DereferenceExpression:
+		return "deref(" + shape(e.Var) + ")"
+	case *ReferenceExpression:
+		if e.Var == nil {
+			t.Fatal("reference has no operand")
+		}
+		return "ref(" + shape(e.Var) + ")"
+	case *AssignmentExpression:
+		return fmt.Sprintf("assign(%s, %s)", shape(e.Left), shape(e.Right))
+	case *CallExpression:
+		parts := []string{shape(e.Function)}
+		for _, param := range e.Params {
+			parts = append(parts, shape(param))
+		}
+		return "call(" + strings.Join(parts, ", ") + ")"
+	default:
+		t.Fatalf("unexpected expression node %T", expr)
+		return ""
 	}
 }
