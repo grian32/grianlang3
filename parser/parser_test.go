@@ -360,7 +360,7 @@ func TestPrecedenceExpression(t *testing.T) {
 			"1 + 2 < 3 == 4",
 			"(((1(Int) + 2(Int)) < 3(Int)) == 4(Int));",
 		},
-		// TODO: add tests for precendences around sizeof, cast, call, etc once those are more clearly defined rather than just slapped onto something
+		// Cast, sizeof, and postfix interactions have structural assertions in precedence_test.go.
 	}
 
 	runTests(t, tests)
