@@ -1,0 +1,4 @@
+fnc main() -> int32 {
+ missing_function()
+ return 0i32
+}

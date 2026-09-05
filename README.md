@@ -27,6 +27,28 @@ make
 
 This compiles the stdlib builtin modules to LLVM IR and builds the `gl3` compiler binary. You can also cleanup any build files using `make clean`
 
+## Testing
+
+Run the full suite with `go test ./...`, or only the compiler end-to-end tests
+with `go test ./e2e -count=1`. The e2e suite requires Go, Make, and Clang;
+setup regenerates stale builtin LLVM files and builds a temporary compiler.
+Use `go test -short ./...` to skip compiler builds and e2e execution.
+
+Fixtures live in `e2e/testdata` and are registered in `e2e/e2e_test.go`.
+Each fixture builds `main.gl3` (or its registered source list) in an isolated
+temporary directory. Missing `stdout.txt` and `stderr.txt` mean empty output;
+the default expected program exit is zero. `compile_error.txt` requires a
+failed build, its diagnostic substring, and no output executable.
+`compile_warning.txt` checks a diagnostic substring; warning-only fixtures
+use `compileOnly` to avoid executing invalid programs. Selected fixtures
+also run with `--O3`, using the same expected results as their default build.
+These variants avoid builtin imports because builtin processing currently
+mutates the build optimization options.
+
+Regression fixtures assert intended results even when the compiler currently
+fails them; they are not skipped or changed to accept incorrect behavior.
+Boolean short-circuit behavior is not tested until its language contract is defined.
+
 ## Example Program
 
 ```gl3
