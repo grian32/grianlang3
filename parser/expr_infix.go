@@ -67,7 +67,6 @@ func (p *Parser) parseArrayIndexExpression(left Expression) Expression {
 	if !p.expectCurr(lexer.RBRACKET) {
 		return nil
 	}
-	p.NextToken()
 
 	return &DereferenceExpression{
 		Token: derefToken,
