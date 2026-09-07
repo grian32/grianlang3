@@ -56,13 +56,12 @@ func TestPrograms(t *testing.T) {
 	// Defaults: compile main.gl3 successfully, run with empty stdin, exit 0.
 	// Expected stdout and stderr are fixture files; absent files mean empty.
 	cases := []struct {
-		name        string
-		sources     []string
-		args        []string
-		stdin       string
-		exit        int
-		compileOnly bool
-		optimize    bool
+		name     string
+		sources  []string
+		args     []string
+		stdin    string
+		exit     int
+		optimize bool
 	}{
 		{name: "unsigned_casts", optimize: true},
 		{name: "unsigned_same_width", optimize: true},
@@ -79,9 +78,9 @@ func TestPrograms(t *testing.T) {
 		{name: "address_of_dereference", optimize: true},
 		{name: "import_types_constants", sources: []string{"main.gl3", "model.gl3"}},
 		{name: "strings"},
-		{name: "print_type_warning", compileOnly: true},
-		{name: "print_count_warning", compileOnly: true},
-		{name: "constant_assignment_warning", compileOnly: true},
+		{name: "print_type_warning"},
+		{name: "print_count_warning"},
+		{name: "constant_assignment_warning"},
 		{name: "missing_builtin_import"},
 		{name: "hello"},
 		{name: "arithmetic_casts"},
@@ -147,12 +146,27 @@ func TestPrograms(t *testing.T) {
 			args = append(args, "-o", executable)
 			args = append(args, test.args...)
 			compiled := run(work, env, "", 30*time.Second, compiler, args...)
-			if warning := expected(t, fixture, "compile_warning.txt"); warning != "" {
-				if !strings.Contains(compiled.stdout+compiled.stderr, strings.TrimSpace(warning)) {
-					t.Fatalf("missing compiler warning %q\nstdout: %s\nstderr: %s", warning, compiled.stdout, compiled.stderr)
+			diagnostic := expected(t, fixture, "compile_error.txt")
+			checkerDiagnostic := expected(t, fixture, "checker_error.txt")
+			if checkerDiagnostic != "" {
+				if diagnostic != "" {
+					t.Fatal("fixture must not specify both compile_error.txt and checker_error.txt")
+				}
+				diagnostic = checkerDiagnostic
+				found := false
+				for _, line := range strings.Split(compiled.stdout+compiled.stderr, "\n") {
+					if _, message, ok := strings.Cut(line, "checker error:"); ok && strings.Contains(message, strings.TrimSpace(diagnostic)) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Fatalf("missing checker error %q\nstdout: %s\nstderr: %s", diagnostic, compiled.stdout, compiled.stderr)
+				}
+				if strings.Contains(compiled.stdout+compiled.stderr, "compiler error:") || strings.Contains(compiled.stdout+compiled.stderr, "compiler panic") {
+					t.Fatalf("checker failure reached the emitter\n%s%s", compiled.stdout, compiled.stderr)
 				}
 			}
-			diagnostic := expected(t, fixture, "compile_error.txt")
 			if diagnostic != "" {
 				if compiled.timeout {
 					t.Fatalf("compiler timed out\n%s%s", compiled.stdout, compiled.stderr)
@@ -171,9 +185,6 @@ func TestPrograms(t *testing.T) {
 			}
 			if compiled.err != nil {
 				t.Fatalf("compilation failed: %v\nstdout: %s\nstderr: %s", compiled.err, compiled.stdout, compiled.stderr)
-			}
-			if test.compileOnly {
-				return
 			}
 			result := run(work, env, test.stdin, 5*time.Second, executable)
 			if result.timeout {

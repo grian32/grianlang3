@@ -39,9 +39,10 @@ Each fixture builds `main.gl3` (or its registered source list) in an isolated
 temporary directory. Missing `stdout.txt` and `stderr.txt` mean empty output;
 the default expected program exit is zero. `compile_error.txt` requires a
 failed build, its diagnostic substring, and no output executable.
-`compile_warning.txt` checks a diagnostic substring; warning-only fixtures
-use `compileOnly` to avoid executing invalid programs. Selected fixtures
-also run with `--O3`, using the same expected results as their default build.
+`checker_error.txt` requires a fatal `checker error:` diagnostic containing
+the expected substring, a failed build, and no output executable or emitter
+error. These fixtures assert the intended checker behavior ahead of its rewrite.
+Selected fixtures also run with `--O3`, using the same expected results as their default build.
 These variants avoid builtin imports because builtin processing currently
 mutates the build optimization options.
 
