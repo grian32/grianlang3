@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"gl3/lexer"
 	"gl3/util"
 )
 
@@ -35,12 +34,7 @@ func (p *Parser) parseDereference() Expression {
 	expr := &DereferenceExpression{Token: p.currToken}
 
 	p.NextToken()
-	if p.currTokenIs(lexer.IDENTIFIER) {
-		expr.Var = &IdentifierExpression{Token: p.currToken, Value: p.currToken.Literal}
-		p.NextToken()
-	} else {
-		expr.Var = p.parseExpression(PREFIX)
-	}
+	expr.Var = p.parseExpression(PREFIX)
 
 	return expr
 }
