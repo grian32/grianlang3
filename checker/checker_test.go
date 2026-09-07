@@ -162,7 +162,7 @@ func TestCheckProgram(t *testing.T) {
 	for _, test := range declarationTests {
 		t.Run(test.name, func(t *testing.T) {
 			program := parseDeclarations(t, test.source)
-			c := &Checker{}
+			c := NewChecker()
 			got, diagnostics := c.CheckProgram(program)
 
 			assertDiagnostics(t, diagnostics, test.diagnostics)
