@@ -58,6 +58,9 @@ func (p *Parser) parseIntegerLiteral() Expression {
 			lit.Type.Base = lexer.Uint8
 		case "u64":
 			lit.Type.Base = lexer.Uint
+		default:
+			lit.Type.Base = lexer.None
+			p.appendError(&p.currToken.Position, "unknown integer literal suffix %s", p.currToken.Literal)
 		}
 		p.NextToken()
 	}
