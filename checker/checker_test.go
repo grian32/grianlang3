@@ -23,6 +23,13 @@ var declarationTests = []struct {
 }{
 	{name: "empty"},
 	{
+		name:   "invalid global type",
+		source: `global Missing* value = 0`,
+		diagnostics: []expectedDiagnostic{
+			{messageContains: []string{"invalid type", "global", "value"}, line: 1},
+		},
+	},
+	{
 		name: "interleaved declarations",
 		source: `
 global int32 first = 1i32
@@ -30,23 +37,23 @@ fnc alpha() -> int32 { return 1i32 }
 struct First { int32 value }
 global const int32 second = 2i32
 struct Second { First* previous }
-fnc beta(int32 input) -> int32 {
+private fnc beta(int32 input) -> int32 {
     def int32 local = input
     return local
 }
 `,
 		want: checkedast.Program{
 			Structs: []checkedast.Struct{
-				{Name: "First", Id: 0},
-				{Name: "Second", Id: 1},
+				{Name: "First", Id: 0, Fields: []checkedast.TypedName{{Name: "value", Type: checkedast.Type{Base: checkedast.Int32}}}, FieldNames: map[string]int{"value": 0}},
+				{Name: "Second", Id: 1, Fields: []checkedast.TypedName{{Name: "previous", Type: checkedast.Type{Base: checkedast.StructType, Struct: 0, Pointer: 1}}}, FieldNames: map[string]int{"previous": 0}},
 			},
 			Functions: []checkedast.Function{
-				{Name: "alpha", Id: 0},
-				{Name: "beta", Id: 1},
+				{Name: "alpha", Id: 0, ReturnType: checkedast.Type{Base: checkedast.Int32}},
+				{Name: "beta", Id: 1, Private: true, Parameters: []checkedast.TypedName{{Name: "input", Type: checkedast.Type{Base: checkedast.Int32}}}, ParameterNames: map[string]int{"input": 0}, ReturnType: checkedast.Type{Base: checkedast.Int32}},
 			},
 			Globals: []checkedast.Global{
-				{Name: "first", Id: 0},
-				{Name: "second", Id: 1},
+				{Name: "first", Id: 0, Constant: false, Type: checkedast.Type{Base: checkedast.Int32}},
+				{Name: "second", Id: 1, Constant: true, Type: checkedast.Type{Base: checkedast.Int32}},
 			},
 		},
 		symbols: map[string]checkedast.Symbol{
@@ -66,12 +73,107 @@ fnc probe(int32 parameter) -> int32 {
 }
 `,
 		want: checkedast.Program{
-			Functions: []checkedast.Function{{Name: "probe", Id: 0}},
+			Functions: []checkedast.Function{{Name: "probe", Id: 0, Parameters: []checkedast.TypedName{{Name: "parameter", Type: checkedast.Type{Base: checkedast.Int32}}}, ParameterNames: map[string]int{"parameter": 0}, ReturnType: checkedast.Type{Base: checkedast.Int32}}},
 		},
 		symbols: map[string]checkedast.Symbol{
 			"probe": checkedast.FunctionID(0),
 		},
 	},
+	{
+		name: "ordered members and forward types",
+		source: `fnc selectNode(Node** z, uint8 a, bool ready) -> Node* { return 0 as Node* }
+global Node* head = 0 as Node*
+global const uint8 limit = 7u8
+struct Container { Node* z float a char** text }
+struct Node { int32 value Node* next }
+fnc idle() -> none { }`,
+		want: checkedast.Program{
+			Structs: []checkedast.Struct{
+				{
+					Name: "Container", Id: 0,
+					Fields: []checkedast.TypedName{
+						{Name: "z", Type: checkedast.Type{Base: checkedast.StructType, Struct: 1, Pointer: 1}},
+						{Name: "a", Type: checkedast.Type{Base: checkedast.Float}},
+						{Name: "text", Type: checkedast.Type{Base: checkedast.Char, Pointer: 2}},
+					},
+					FieldNames: map[string]int{"z": 0, "a": 1, "text": 2},
+				},
+				{
+					Name: "Node", Id: 1,
+					Fields: []checkedast.TypedName{
+						{Name: "value", Type: checkedast.Type{Base: checkedast.Int32}},
+						{Name: "next", Type: checkedast.Type{Base: checkedast.StructType, Struct: 1, Pointer: 1}},
+					},
+					FieldNames: map[string]int{"value": 0, "next": 1},
+				},
+			},
+			Functions: []checkedast.Function{
+				{
+					Name: "selectNode", Id: 0,
+					Parameters: []checkedast.TypedName{
+						{Name: "z", Type: checkedast.Type{Base: checkedast.StructType, Struct: 1, Pointer: 2}},
+						{Name: "a", Type: checkedast.Type{Base: checkedast.Uint8}},
+						{Name: "ready", Type: checkedast.Type{Base: checkedast.Bool}},
+					},
+					ParameterNames: map[string]int{"z": 0, "a": 1, "ready": 2},
+					ReturnType:     checkedast.Type{Base: checkedast.StructType, Struct: 1, Pointer: 1},
+				},
+				{Name: "idle", Id: 1, ReturnType: checkedast.Type{Base: checkedast.Void}},
+			},
+			Globals: []checkedast.Global{
+				{Name: "head", Id: 0, Constant: false, Type: checkedast.Type{Base: checkedast.StructType, Struct: 1, Pointer: 1}},
+				{Name: "limit", Id: 1, Constant: true, Type: checkedast.Type{Base: checkedast.Uint8}},
+			},
+		},
+		symbols: map[string]checkedast.Symbol{
+			"Container": checkedast.StructID(0), "Node": checkedast.StructID(1),
+			"selectNode": checkedast.FunctionID(0), "idle": checkedast.FunctionID(1),
+			"head": checkedast.GlobalID(0), "limit": checkedast.GlobalID(1),
+		},
+	},
+	{
+		name: "member names are scoped to their declaration",
+		source: `global int32 value = 1i32
+struct Left { int32 value }
+struct Right { int32 value }
+fnc first(int32 value) -> int32 { return value }
+fnc second(int32 value) -> int32 { return value }`,
+		want: checkedast.Program{
+			Structs: []checkedast.Struct{
+				{Name: "Left", Id: 0, Fields: []checkedast.TypedName{{Name: "value", Type: checkedast.Type{Base: checkedast.Int32}}}, FieldNames: map[string]int{"value": 0}},
+				{Name: "Right", Id: 1, Fields: []checkedast.TypedName{{Name: "value", Type: checkedast.Type{Base: checkedast.Int32}}}, FieldNames: map[string]int{"value": 0}},
+			},
+			Functions: []checkedast.Function{
+				{Name: "first", Id: 0, Parameters: []checkedast.TypedName{{Name: "value", Type: checkedast.Type{Base: checkedast.Int32}}}, ParameterNames: map[string]int{"value": 0}, ReturnType: checkedast.Type{Base: checkedast.Int32}},
+				{Name: "second", Id: 1, Parameters: []checkedast.TypedName{{Name: "value", Type: checkedast.Type{Base: checkedast.Int32}}}, ParameterNames: map[string]int{"value": 0}, ReturnType: checkedast.Type{Base: checkedast.Int32}},
+			},
+			Globals: []checkedast.Global{{Name: "value", Id: 0, Constant: false, Type: checkedast.Type{Base: checkedast.Int32}}},
+		},
+		symbols: map[string]checkedast.Symbol{
+			"value": checkedast.GlobalID(0), "Left": checkedast.StructID(0), "Right": checkedast.StructID(1),
+			"first": checkedast.FunctionID(0), "second": checkedast.FunctionID(1),
+		},
+	},
+	{
+		name:        "duplicate fields",
+		source:      `struct Item { int32 value bool value }`,
+		diagnostics: []expectedDiagnostic{{messageContains: []string{"duplicate", "value"}, line: 1}},
+	},
+	{
+		name:        "duplicate parameters",
+		source:      `fnc repeat(int32 value, bool value) -> none { }`,
+		diagnostics: []expectedDiagnostic{{messageContains: []string{"duplicate", "value"}, line: 1}},
+	},
+	{
+		name: "multiple member duplicates",
+		source: `struct Item { int32 value bool value }
+fnc repeat(int32 arg, bool arg) -> none { }`,
+		diagnostics: []expectedDiagnostic{
+			{messageContains: []string{"duplicate", "value"}, line: 1},
+			{messageContains: []string{"duplicate", "arg"}, line: 2},
+		},
+	},
+
 	{
 		name: "duplicate struct then struct",
 		source: `struct repeated { int32 value }
@@ -202,9 +304,33 @@ func assertSlice[T any](t *testing.T, name string, got, want []T) {
 		t.Fatalf("%s: want %d entries, got %d", name, len(want), len(got))
 	}
 	for i := range want {
-		if !reflect.DeepEqual(got[i], want[i]) {
-			t.Errorf("%s[%d]: want %+v, got %+v", name, i, want[i], got[i])
+		if !reflect.DeepEqual(normalizeEmptyCollections(got[i]), normalizeEmptyCollections(want[i])) {
+			t.Errorf("%s[%d]: want %#v, got %#v", name, i, want[i], got[i])
 		}
+	}
+}
+
+// Normalize copies, leaving the actual output and fixture data unchanged.
+func normalizeEmptyCollections(declaration any) any {
+	switch node := declaration.(type) {
+	case checkedast.Struct:
+		if len(node.Fields) == 0 {
+			node.Fields = nil
+		}
+		if len(node.FieldNames) == 0 {
+			node.FieldNames = nil
+		}
+		return node
+	case checkedast.Function:
+		if len(node.Parameters) == 0 {
+			node.Parameters = nil
+		}
+		if len(node.ParameterNames) == 0 {
+			node.ParameterNames = nil
+		}
+		return node
+	default:
+		return declaration
 	}
 }
 

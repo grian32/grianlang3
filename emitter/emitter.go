@@ -783,12 +783,13 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		typ := &types.StructType{
 			TypeName: node.Name,
 		}
-		for _, t := range node.Types {
+		fields, names := structFieldMetadata(node)
+		for _, t := range fields {
 			typ.Fields = append(typ.Fields, e.varTypeToLlvmStructDefn(t, node.Name))
 		}
 		e.structTypes[node.Name] = typ
-		e.structMemberIndexes[node.Name] = node.Names
-		e.structMemberTypes[node.Name] = node.Types
+		e.structMemberIndexes[node.Name] = names
+		e.structMemberTypes[node.Name] = fields
 		e.m.NewTypeDef(node.Name, typ)
 	case *parser.StructInitializationExpression:
 		structType, ok := e.structTypes[node.Name]

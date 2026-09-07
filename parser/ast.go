@@ -541,13 +541,15 @@ func (ws *WhileStatement) Position() *util.Position {
 	return &ws.position
 }
 
+type StructField struct {
+	Name *IdentifierExpression
+	Type lexer.VarType
+}
+
 type StructStatement struct {
-	Token lexer.Token
-	Name  string
-	// this is done intentionally as in llvm terms theyre just indexes, so first component just maps to
-	// 0, so map[compname]idx, types[idx]
-	Types    []lexer.VarType
-	Names    map[string]int
+	Token    lexer.Token
+	Name     string
+	Fields   []StructField
 	position util.Position
 }
 
@@ -558,10 +560,10 @@ func (ss *StructStatement) String() string {
 	out.WriteString("struct ")
 	out.WriteString(ss.Name)
 	out.WriteString("{")
-	for name, idx := range ss.Names {
-		out.WriteString(ss.Types[idx].String())
+	for _, field := range ss.Fields {
+		out.WriteString(field.Type.String())
 		out.WriteString(" ")
-		out.WriteString(name)
+		out.WriteString(field.Name.Value)
 		out.WriteString(";")
 	}
 	out.WriteString("}")

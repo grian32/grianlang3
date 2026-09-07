@@ -52,11 +52,11 @@ func (ip *ImportParser) findImports(node parser.Node) {
 			ParamTypes: paramTypes,
 		})
 	case *parser.StructStatement:
-		// this is kinda stupid but passing around the struct stmt is icky
+		fields, names := structFieldMetadata(node)
 		ip.structDefns = append(ip.structDefns, StructDefinition{
 			Name:       node.Name,
-			Fields:     node.Types,
-			FieldNames: node.Names,
+			Fields:     fields,
+			FieldNames: names,
 		})
 	case *parser.DefStatement:
 		if node.Constant && node.Global {
@@ -95,4 +95,15 @@ func findDeclares(file string) *ImportParser {
 	ip := ImportParser{}
 	ip.findImports(program)
 	return &ip
+}
+
+// Adapt the ordered parser fields to the legacy emitter's lookup tables.
+func structFieldMetadata(node *parser.StructStatement) ([]lexer.VarType, map[string]int) {
+	fields := make([]lexer.VarType, len(node.Fields))
+	names := make(map[string]int, len(node.Fields))
+	for i, field := range node.Fields {
+		fields[i] = field.Type
+		names[field.Name.Value] = i
+	}
+	return fields, names
 }

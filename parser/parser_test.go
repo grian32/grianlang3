@@ -868,22 +868,19 @@ func TestStructStatement(t *testing.T) {
 			if stmt.Name != test.name {
 				t.Fatalf("expected struct name %q, got %q", test.name, stmt.Name)
 			}
-			if len(stmt.Types) != len(test.fields) {
-				t.Fatalf("expected %d fields, got %d", len(test.fields), len(stmt.Types))
+			if len(stmt.Fields) != len(test.fields) {
+				t.Fatalf("expected %d fields, got %d", len(test.fields), len(stmt.Fields))
 			}
-			if len(stmt.Names) != len(test.fields) {
-				t.Fatalf("expected %d field names, got %d", len(test.fields), len(stmt.Names))
-			}
-			for fieldName, expectedType := range test.fields {
-				idx, ok := stmt.Names[fieldName]
-				if !ok {
-					t.Fatalf("missing field %q", fieldName)
+			seen := make(map[string]bool)
+			for _, field := range stmt.Fields {
+				fieldName := field.Name.Value
+				expectedType, ok := test.fields[fieldName]
+				if !ok || seen[fieldName] {
+					t.Fatalf("unexpected or repeated field %q", fieldName)
 				}
-				if idx < 0 || idx >= len(stmt.Types) {
-					t.Fatalf("field %q has invalid index %d", fieldName, idx)
-				}
-				if stmt.Types[idx] != expectedType {
-					t.Fatalf("field %q expected type %s, got %s", fieldName, expectedType.String(), stmt.Types[idx].String())
+				seen[fieldName] = true
+				if field.Type != expectedType {
+					t.Errorf("field %q expected type %v, got %v", fieldName, expectedType, field.Type)
 				}
 			}
 		})
@@ -898,15 +895,15 @@ func TestStructDeclarationFieldOrder(t *testing.T) {
 	}
 	names := []string{"z", "a", "middle"}
 	types := []lexer.VarType{{Base: lexer.Int}, {Base: lexer.Char, Pointer: 1}, {IsStructType: true, StructName: "Node", Pointer: 2}}
-	if len(s.Names) != len(names) || len(s.Types) != len(types) {
+	if len(s.Fields) != len(names) {
 		t.Fatalf("wrong field count: %+v", s)
 	}
 	for i, name := range names {
-		if index, ok := s.Names[name]; !ok || index != i {
-			t.Errorf("field %s must have index %d, got %d (present=%v)", name, i, index, ok)
+		if s.Fields[i].Name.Value != name {
+			t.Errorf("field %d: want name %s, got %s", i, name, s.Fields[i].Name.Value)
 		}
-		if s.Types[i] != types[i] {
-			t.Errorf("field %d: want %v, got %v", i, types[i], s.Types[i])
+		if s.Fields[i].Type != types[i] {
+			t.Errorf("field %d: want %v, got %v", i, types[i], s.Fields[i].Type)
 		}
 	}
 }
@@ -1238,5 +1235,25 @@ func expressionShape(t *testing.T, expr Expression) string {
 	default:
 		t.Fatalf("unexpected expression node %T", expr)
 		return ""
+	}
+}
+
+func TestStructFieldsPreserveDuplicates(t *testing.T) {
+	stmt := parseSingleStatement(t, "struct Item {\nint32 z\nbool a\nchar* z\n}").(*StructStatement)
+	wantNames := []string{"z", "a", "z"}
+	wantTypes := []lexer.VarType{{Base: lexer.Int32}, {Base: lexer.Bool}, {Base: lexer.Char, Pointer: 1}}
+	if len(stmt.Fields) != len(wantNames) {
+		t.Fatalf("want 3 fields, got %d", len(stmt.Fields))
+	}
+	for i, field := range stmt.Fields {
+		if field.Name.Value != wantNames[i] || field.Type != wantTypes[i] {
+			t.Errorf("field %d: want %s %v, got %s %v", i, wantNames[i], wantTypes[i], field.Name.Value, field.Type)
+		}
+		if field.Name.Position().StartLine != uint32(i+2) {
+			t.Errorf("field %d: wrong name position: %+v", i, field.Name.Position())
+		}
+	}
+	if got, want := stmt.String(), "struct Item{Int32 z;Bool a;Char* z;}"; got != want {
+		t.Errorf("want %q, got %q", want, got)
 	}
 }

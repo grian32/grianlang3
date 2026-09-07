@@ -26,6 +26,10 @@ func (c *Checker) CheckProgram(program *parser.Program) (*checkedast.Program, []
 		goto end
 	}
 
+	if !c.populateFieldsFunctions(program) {
+		goto end
+	}
+
 end:
 	return &checkedast.Program{
 		Structs:   c.structs,
@@ -78,8 +82,9 @@ func (c *Checker) assignIDs(node parser.Node) bool {
 
 		id := checkedast.GlobalID(len(c.globals))
 		c.globals = append(c.globals, checkedast.Global{
-			Name: node.Name.Value,
-			Id:   id,
+			Name:     node.Name.Value,
+			Id:       id,
+			Constant: node.Constant,
 		})
 		c.symbols[node.Name.Value] = id
 	}
@@ -87,9 +92,106 @@ func (c *Checker) assignIDs(node parser.Node) bool {
 	return true
 }
 
+func (c *Checker) populateFieldsFunctions(node parser.Node) bool {
+	switch node := node.(type) {
+	case *parser.Program:
+		valid := true
+		for _, s := range node.Statements {
+			if !c.populateFieldsFunctions(s) {
+				valid = false
+			}
+		}
+
+		return valid
+	case *parser.FunctionStatement:
+		funcSymbol, _ := c.symbols[node.Name.Value]
+		funcId := funcSymbol.(checkedast.FunctionID)
+		funcAst := &c.functions[funcId]
+
+		retType, ok := checkedast.ConvertVarType(node.Type, c.symbols)
+		if !ok {
+			c.appendDiagnostic(node.Position(), "invalid return type on function `%s`", node.Name.Value)
+			return false
+		}
+
+		funcAst.ReturnType = retType
+		funcAst.Private = node.Private
+		funcAst.ParameterNames = make(map[string]int)
+
+		paramsSucceded := true
+
+		for _, param := range node.Params {
+			if _, exists := funcAst.ParameterNames[param.Name.Value]; exists {
+				c.appendDiagnostic(node.Position(), "duplicate parameter `%s` on function `%s`", param.Name.Value, node.Name.Value)
+				paramsSucceded = false
+				continue
+			}
+
+			pt, ok := checkedast.ConvertVarType(param.Type, c.symbols)
+			if !ok {
+				c.appendDiagnostic(node.Position(), "invalid parameter type for parameter `%s` on function `%s`", param.Name.Value, node.Name.Value)
+				paramsSucceded = false
+				continue
+			}
+			funcAst.ParameterNames[param.Name.Value] = len(funcAst.Parameters)
+			funcAst.Parameters = append(funcAst.Parameters, checkedast.TypedName{
+				Name: param.Name.Value,
+				Type: pt,
+			})
+		}
+
+		return paramsSucceded
+	case *parser.DefStatement:
+		if !node.Global {
+			break
+		}
+		globalSymbol, _ := c.symbols[node.Name.Value]
+		globalAst := &c.globals[globalSymbol.(checkedast.GlobalID)]
+
+		gt, ok := checkedast.ConvertVarType(node.Type, c.symbols)
+		if !ok {
+			c.appendDiagnostic(node.Position(), "invalid type for global `%s`", node.Name.Value)
+			return false
+		}
+
+		globalAst.Type = gt
+	case *parser.StructStatement:
+		structSymbol, _ := c.symbols[node.Name]
+		structAst := &c.structs[structSymbol.(checkedast.StructID)]
+
+		fieldsSucceded := true
+
+		structAst.FieldNames = make(map[string]int)
+
+		for _, field := range node.Fields {
+			if _, exists := structAst.FieldNames[field.Name.Value]; exists {
+				c.appendDiagnostic(node.Position(), "duplicate field `%s` on struct `%s`", field.Name.Value, node.Name)
+				fieldsSucceded = false
+				continue
+			}
+
+			ft, ok := checkedast.ConvertVarType(field.Type, c.symbols)
+			if !ok {
+				c.appendDiagnostic(node.Position(), "invalid field type for field `%s` on struct `%s`", field.Name.Value, node.Name)
+				fieldsSucceded = false
+				continue
+			}
+			structAst.FieldNames[field.Name.Value] = len(structAst.Fields)
+			structAst.Fields = append(structAst.Fields, checkedast.TypedName{
+				Name: field.Name.Value,
+				Type: ft,
+			})
+		}
+
+		return fieldsSucceded
+	}
+
+	return true
+}
+
 func (c *Checker) isSymbolDuplicate(name string, pos *util.Position) bool {
 	if _, exists := c.symbols[name]; exists {
-		c.appendDiagnostic(pos, "duplicate symbol %s", name)
+		c.appendDiagnostic(pos, "duplicate symbol `%s`", name)
 		return true
 	}
 

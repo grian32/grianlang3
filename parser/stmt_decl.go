@@ -57,7 +57,6 @@ func (p *Parser) parseStructStatement() Statement {
 	if !p.expectCurr(lexer.LBRACE) {
 		return nil
 	}
-	stmt.Names = make(map[string]int)
 	for !p.currTokenIs(lexer.RBRACE) {
 		vt, ident, typeOk, identOk := p.parseTypedIdentifier()
 		if !typeOk || !identOk {
@@ -71,8 +70,7 @@ func (p *Parser) parseStructStatement() Statement {
 			}
 			return nil
 		}
-		stmt.Types = append(stmt.Types, vt)
-		stmt.Names[ident.Value] = len(stmt.Types) - 1
+		stmt.Fields = append(stmt.Fields, StructField{Name: ident, Type: vt})
 	}
 	stmt.Position().CopyEnd(&p.currToken.Position)
 	p.NextToken()
