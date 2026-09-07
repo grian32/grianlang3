@@ -22,8 +22,11 @@ func (p *Parser) parseReference() Expression {
 	expr := &ReferenceExpression{Token: p.currToken}
 	p.NextToken()
 	rhs := p.parseExpression(LOWEST)
+	// TODO: make this work on generic expression
 	if ident, ok := rhs.(*IdentifierExpression); ok {
 		expr.Var = ident
+	} else {
+		p.appendError(&p.currToken.Position, "& isnt applied on an identifier")
 	}
 	return expr
 }

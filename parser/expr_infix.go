@@ -64,7 +64,7 @@ func (p *Parser) parseArrayIndexExpression(left Expression) Expression {
 	derefToken := p.currToken
 	p.NextToken() // skip past [
 	index := p.parseExpression(LOWEST)
-	if !p.currTokenIs(lexer.RBRACKET) {
+	if !p.expectCurr(lexer.RBRACKET) {
 		return nil
 	}
 	p.NextToken()
