@@ -513,11 +513,18 @@ func (e *Emitter) Emit(node parser.Node) (value.Value, lexer.VarType) {
 		e.currBlock.NewRet(val)
 		return val, vt
 	case *parser.ReferenceExpression:
-		vPtr, ok := e.variables[node.Var.Value]
+		// TODO: Support general addressable expressions during the emitter rework.
+		// The parser accepts expression operands; emission only supports identifiers for now.
+		ident, ok := node.Var.(*parser.IdentifierExpression)
 		if !ok {
-			e.appendError(node.Position(), "couldn't find variable with name %s in reference expr", node.Var.Value)
+			e.appendError(node.Position(), "address-of currently only supports identifiers")
+			return nil, lexer.VarType{}
 		}
-		t := e.varGlTypes[node.Var.Value]
+		vPtr, ok := e.variables[ident.Value]
+		if !ok {
+			e.appendError(node.Position(), "couldn't find variable with name %s in reference expr", ident.Value)
+		}
+		t := e.varGlTypes[ident.Value]
 		t.Pointer++
 		return vPtr, t
 	case *parser.DereferenceExpression:

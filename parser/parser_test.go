@@ -589,8 +589,7 @@ func TestCastPrecedence(t *testing.T) {
 		{"*p as int", "cast(Int, deref(p))"},
 		{"*p as int*", "cast(Int*, deref(p))"},
 		{"*(p as int*)", "deref(cast(Int*, p))"},
-		// TODO: Re-enable non-field address-of tests.
-		// {"(&a) as int", "cast(Int, ref(a))"},
+		{"(&a) as int", "cast(Int, ref(a))"},
 		{"a as int32 as float", "cast(Float, cast(Int32, a))"},
 		{"p as Node**", "cast(Node**, p)"},
 		{"f(a) as int", "cast(Int, call(f, a))"},
@@ -790,11 +789,10 @@ func TestArrayLiteralExpression(t *testing.T) {
 
 func TestReferenceAndDereferenceExpression(t *testing.T) {
 	tests := map[string]InputOutput{
-		// TODO: Re-enable non-field address-of tests.
-		// "reference identifier": {
-		// 	"&x",
-		// 	"&x;",
-		// },
+		"reference identifier": {
+			"&x",
+			"&x;",
+		},
 		"dereference identifier": {
 			"*ptr",
 			"*ptr;",
@@ -810,11 +808,13 @@ func TestReferenceAndDereferenceExpression(t *testing.T) {
 
 func TestPointerPrefixPrecedence(t *testing.T) {
 	runExpressionShapeTests(t, []InputOutput{
-		// TODO: Re-enable non-field address-of tests.
-		// {"&x as int", "cast(Int, ref(x))"},
-		// {"(&x) as int", "cast(Int, ref(x))"},
-		// {"&x + n", "+(ref(x), n)"},
-		// {"(&x) + n", "+(ref(x), n)"},
+		{"&x as int", "cast(Int, ref(x))"},
+		{"(&x) as int", "cast(Int, ref(x))"},
+		{"&x + n", "+(ref(x), n)"},
+		{"(&x) + n", "+(ref(x), n)"},
+		{"&p.field", "ref(.(p, field))"},
+		{"&items[i]", "ref(deref(+(items, i)))"},
+		{"&*p", "ref(deref(p))"},
 		{"*p[i]", "deref(deref(+(p, i)))"},
 		{"*(p[i])", "deref(deref(+(p, i)))"},
 		{"(*p)[i]", "deref(+(deref(p), i))"},
@@ -1008,7 +1008,6 @@ func TestMalformedParserInput(t *testing.T) {
 		"literal assignment target":   {"1 = x", "lhs of assignment"},
 		"sum assignment target":       {"(a + b) = x", "lhs of assignment"},
 		"call assignment target":      {"f() = x", "lhs of assignment"},
-		"unsupported field reference": {"&p.field", ""},
 		"unknown integer suffix":      {"1u128", ""},
 		"misspelled integer suffix":   {"1i33", ""},
 		"unsuffixed overflow":         {"18446744073709551616", "unsigned/signed integer"},

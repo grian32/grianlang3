@@ -330,7 +330,7 @@ func (ce *CallExpression) Position() *util.Position {
 
 type ReferenceExpression struct {
 	Token lexer.Token
-	Var   *IdentifierExpression
+	Var   Expression
 }
 
 func (re *ReferenceExpression) expressionNode()      { /* noop */ }
