@@ -29,13 +29,10 @@ func (p *Parser) parseIntegerLiteral() Expression {
 
 	// could be more efficient by parsing based on type or the lack thereof but this makes for a decent chunk cleaner
 	// code
-	value, err := strconv.ParseInt(p.currToken.Literal, 0, 64)
-	if err != nil {
-		p.appendError(&p.currToken.Position, "could not parse %q as integer", p.currToken.Literal)
-	}
-	uvalue, err := strconv.ParseUint(p.currToken.Literal, 0, 64)
-	if err != nil {
-		p.appendError(&p.currToken.Position, "could not parse %q as unsigned integer", p.currToken.Literal)
+	value, erri := strconv.ParseInt(p.currToken.Literal, 0, 64)
+	uvalue, erru := strconv.ParseUint(p.currToken.Literal, 0, 64)
+	if erri != nil && erru != nil {
+		p.appendError(&p.currToken.Position, "could not parse %q as unsigned/signed integer", p.currToken.Literal)
 	}
 
 	lit.Value = value

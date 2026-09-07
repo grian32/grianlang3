@@ -1008,8 +1008,8 @@ func TestMalformedParserInput(t *testing.T) {
 		"unsupported field reference": {"&p.field", ""},
 		"unknown integer suffix":      {"1u128", ""},
 		"misspelled integer suffix":   {"1i33", ""},
-		"signed overflow":             {"9223372036854775808", "integer"},
-		"unsigned overflow":           {"18446744073709551616u64", "unsigned integer"},
+		"unsuffixed overflow":         {"18446744073709551616", "unsigned/signed integer"},
+		"unsigned overflow":           {"18446744073709551616u64", "unsigned/signed integer"},
 	}
 
 	runErrorTests(t, tests)
