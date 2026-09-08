@@ -35,6 +35,9 @@ type Struct struct {
 	Id         StructID
 	Fields     []TypedName
 	FieldNames map[string]int
+	Opaque     bool
+	// only Opaque structs can be Private
+	Private bool
 }
 
 type Function struct {
@@ -45,8 +48,9 @@ type Function struct {
 	ReturnType     Type
 	Private        bool
 	// Parameters occupy the first len(Parameters) entries in Locals, in order.
-	Locals []Local
-	Body   Block
+	Locals   []Local
+	External bool
+	Body     Block
 }
 
 type Global struct {

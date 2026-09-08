@@ -3,6 +3,7 @@ package checker
 import (
 	"fmt"
 	"gl3/checkedast"
+	"gl3/lexer"
 	"gl3/parser"
 	"gl3/util"
 )
@@ -36,12 +37,20 @@ func (c *Checker) CheckProgram(program *parser.Program) (*checkedast.Program, []
 		goto end
 	}
 
+	if !c.checkBodies(program) {
+		goto end
+	}
+
 end:
 	return &checkedast.Program{
 		Structs:   c.structs,
 		Functions: c.functions,
 		Globals:   c.globals,
 	}, c.diagnostics
+}
+
+func (c *Checker) checkBodies(node parser.Node) bool {
+	return true
 }
 
 func (c *Checker) assignIDs(node parser.Node) bool {
@@ -62,8 +71,23 @@ func (c *Checker) assignIDs(node parser.Node) bool {
 
 		id := checkedast.StructID(len(c.structs))
 		c.structs = append(c.structs, checkedast.Struct{
-			Name: node.Name,
-			Id:   id,
+			Name:    node.Name,
+			Id:      id,
+			Opaque:  false,
+			Private: false,
+		})
+		c.symbols[node.Name] = id
+	case *parser.ExternStructStatement:
+		if c.isSymbolDuplicate(node.Name, node.Position()) {
+			return false
+		}
+
+		id := checkedast.StructID(len(c.structs))
+		c.structs = append(c.structs, checkedast.Struct{
+			Name:    node.Name,
+			Id:      id,
+			Opaque:  true,
+			Private: node.Private,
 		})
 		c.symbols[node.Name] = id
 	case *parser.FunctionStatement:
@@ -73,10 +97,25 @@ func (c *Checker) assignIDs(node parser.Node) bool {
 
 		id := checkedast.FunctionID(len(c.functions))
 		c.functions = append(c.functions, checkedast.Function{
-			Name: node.Name.Value,
-			Id:   id,
+			Name:     node.Name.Value,
+			Id:       id,
+			External: false,
+			Private:  node.Private,
 		})
 		c.symbols[node.Name.Value] = id
+	case *parser.ExternFunctionStatement:
+		if c.isSymbolDuplicate(node.Name, node.Position()) {
+			return false
+		}
+
+		id := checkedast.FunctionID(len(c.functions))
+		c.functions = append(c.functions, checkedast.Function{
+			Name:     node.Name,
+			Id:       id,
+			External: true,
+			Private:  node.Private,
+		})
+		c.symbols[node.Name] = id
 	case *parser.DefStatement:
 		if !node.Global {
 			break
@@ -99,6 +138,9 @@ func (c *Checker) assignIDs(node parser.Node) bool {
 }
 
 func (c *Checker) populateFieldsFunctions(node parser.Node) bool {
+	// TODO: After all fields are populated, recursively check sizing for globals
+	// and defined-function signatures, including forward-declared structs that
+	// contain opaque fields indirectly. Pointers remain sized regardless of pointee.
 	switch node := node.(type) {
 	case *parser.Program:
 		valid := true
@@ -114,45 +156,25 @@ func (c *Checker) populateFieldsFunctions(node parser.Node) bool {
 		funcId := funcSymbol.(checkedast.FunctionID)
 		funcAst := &c.functions[funcId]
 
-		retType, ok := checkedast.ConvertVarType(node.Type, c.symbols)
+		retType, ok := c.functionRetType(node.Type, node.Position(), node.Name.Value, false)
 		if !ok {
-			c.appendDiagnostic(node.Position(), "invalid return type on function `%s`", node.Name.Value)
 			return false
 		}
 
 		funcAst.ReturnType = retType
-		funcAst.Private = node.Private
-		funcAst.ParameterNames = make(map[string]int)
+		return c.checkFunctionParams(node.Params, funcAst, node.Name.Value)
+	case *parser.ExternFunctionStatement:
+		funcSymbol, _ := c.symbols[node.Name]
+		funcId := funcSymbol.(checkedast.FunctionID)
+		funcAst := &c.functions[funcId]
 
-		paramsSucceded := true
-
-		for _, param := range node.Params {
-			if _, exists := funcAst.ParameterNames[param.Name.Value]; exists {
-				c.appendDiagnostic(param.Name.Position(), "duplicate parameter `%s` on function `%s`", param.Name.Value, node.Name.Value)
-				paramsSucceded = false
-				continue
-			}
-
-			pt, ok := checkedast.ConvertVarType(param.Type, c.symbols)
-			if !ok {
-				c.appendDiagnostic(param.Name.Position(), "invalid parameter type for parameter `%s` on function `%s`", param.Name.Value, node.Name.Value)
-				paramsSucceded = false
-				continue
-			}
-			if pt.Base == checkedast.Void && pt.Pointer == 0 {
-				c.appendDiagnostic(param.Name.Position(), "none type is not allowed on parameters, param `%s` on function `%s`", param.Name.Value, node.Name.Value)
-				paramsSucceded = false
-				continue
-			}
-
-			funcAst.ParameterNames[param.Name.Value] = len(funcAst.Parameters)
-			funcAst.Parameters = append(funcAst.Parameters, checkedast.TypedName{
-				Name: param.Name.Value,
-				Type: pt,
-			})
+		retType, ok := c.functionRetType(node.ReturnType, node.Position(), node.Name, true)
+		if !ok {
+			return false
 		}
 
-		return paramsSucceded
+		funcAst.ReturnType = retType
+		return c.checkFunctionParams(node.Params, funcAst, node.Name)
 	case *parser.DefStatement:
 		if !node.Global {
 			break
@@ -168,6 +190,11 @@ func (c *Checker) populateFieldsFunctions(node parser.Node) bool {
 
 		if gt.Base == checkedast.Void && gt.Pointer == 0 {
 			c.appendDiagnostic(node.Name.Position(), "none type is not allowed on global definitions, global `%s`", node.Name.Value)
+			return false
+		}
+
+		if gt.Base == checkedast.StructType && gt.Pointer == 0 && c.structs[gt.Struct].Opaque {
+			c.appendDiagnostic(node.Name.Position(), "opaque struct by value is not allowed on global definitions, global `%s`", node.Name.Value)
 			return false
 		}
 
@@ -211,6 +238,62 @@ func (c *Checker) populateFieldsFunctions(node parser.Node) bool {
 	}
 
 	return true
+}
+
+func (c *Checker) checkFunctionParams(params []parser.FunctionParameter, funcAst *checkedast.Function, funcName string) bool {
+	funcAst.ParameterNames = make(map[string]int)
+	paramsSucceded := true
+
+	for _, param := range params {
+		if _, exists := funcAst.ParameterNames[param.Name.Value]; exists {
+			c.appendDiagnostic(param.Name.Position(), "duplicate parameter `%s` on function `%s`", param.Name.Value, funcName)
+			paramsSucceded = false
+			continue
+		}
+
+		pt, ok := checkedast.ConvertVarType(param.Type, c.symbols)
+		if !ok {
+			c.appendDiagnostic(param.Name.Position(), "invalid parameter type for parameter `%s` on function `%s`", param.Name.Value, funcName)
+			paramsSucceded = false
+			continue
+		}
+		if pt.Base == checkedast.Void && pt.Pointer == 0 {
+			c.appendDiagnostic(param.Name.Position(), "none type is not allowed on parameters, param `%s` on function `%s`", param.Name.Value, funcName)
+			paramsSucceded = false
+			continue
+		}
+		if pt.Base == checkedast.StructType && pt.Pointer == 0 {
+			stct := c.structs[pt.Struct]
+			if stct.Opaque {
+				c.appendDiagnostic(param.Name.Position(), "opaque struct value types are not allowed on parameters, param `%s` on function `%s`", param.Name.Value, funcName)
+				paramsSucceded = false
+				continue
+			}
+		}
+
+		funcAst.ParameterNames[param.Name.Value] = len(funcAst.Parameters)
+		funcAst.Parameters = append(funcAst.Parameters, checkedast.TypedName{
+			Name: param.Name.Value,
+			Type: pt,
+		})
+	}
+
+	return paramsSucceded
+}
+
+func (c *Checker) functionRetType(retType lexer.VarType, position *util.Position, funcName string, extern bool) (checkedast.Type, bool) {
+	rt, ok := checkedast.ConvertVarType(retType, c.symbols)
+	if !ok {
+		c.appendDiagnostic(position, "invalid return type for function `%s`", funcName)
+		return checkedast.Type{}, false
+	}
+
+	if !extern && rt.Base == checkedast.StructType && rt.Pointer == 0 && c.structs[rt.Struct].Opaque {
+		c.appendDiagnostic(position, "opaque struct value return type is not allowed for function `%s`", funcName)
+		return checkedast.Type{}, false
+	}
+
+	return rt, true
 }
 
 func (c *Checker) isSymbolDuplicate(name string, pos *util.Position) bool {
