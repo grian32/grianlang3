@@ -122,17 +122,23 @@ func (c *Checker) populateFieldsFunctions(node parser.Node) bool {
 
 		for _, param := range node.Params {
 			if _, exists := funcAst.ParameterNames[param.Name.Value]; exists {
-				c.appendDiagnostic(node.Position(), "duplicate parameter `%s` on function `%s`", param.Name.Value, node.Name.Value)
+				c.appendDiagnostic(param.Name.Position(), "duplicate parameter `%s` on function `%s`", param.Name.Value, node.Name.Value)
 				paramsSucceded = false
 				continue
 			}
 
 			pt, ok := checkedast.ConvertVarType(param.Type, c.symbols)
 			if !ok {
-				c.appendDiagnostic(node.Position(), "invalid parameter type for parameter `%s` on function `%s`", param.Name.Value, node.Name.Value)
+				c.appendDiagnostic(param.Name.Position(), "invalid parameter type for parameter `%s` on function `%s`", param.Name.Value, node.Name.Value)
 				paramsSucceded = false
 				continue
 			}
+			if pt.Base == checkedast.Void && pt.Pointer == 0 {
+				c.appendDiagnostic(param.Name.Position(), "none type is not allowed on parameters, param `%s` on function `%s`", param.Name.Value, node.Name.Value)
+				paramsSucceded = false
+				continue
+			}
+
 			funcAst.ParameterNames[param.Name.Value] = len(funcAst.Parameters)
 			funcAst.Parameters = append(funcAst.Parameters, checkedast.TypedName{
 				Name: param.Name.Value,
@@ -150,7 +156,12 @@ func (c *Checker) populateFieldsFunctions(node parser.Node) bool {
 
 		gt, ok := checkedast.ConvertVarType(node.Type, c.symbols)
 		if !ok {
-			c.appendDiagnostic(node.Position(), "invalid type for global `%s`", node.Name.Value)
+			c.appendDiagnostic(node.Name.Position(), "invalid type for global `%s`", node.Name.Value)
+			return false
+		}
+
+		if gt.Base == checkedast.Void && gt.Pointer == 0 {
+			c.appendDiagnostic(node.Name.Position(), "none type is not allowed on global definitions, global `%s`", node.Name.Value)
 			return false
 		}
 
@@ -165,17 +176,24 @@ func (c *Checker) populateFieldsFunctions(node parser.Node) bool {
 
 		for _, field := range node.Fields {
 			if _, exists := structAst.FieldNames[field.Name.Value]; exists {
-				c.appendDiagnostic(node.Position(), "duplicate field `%s` on struct `%s`", field.Name.Value, node.Name)
+				c.appendDiagnostic(field.Name.Position(), "duplicate field `%s` on struct `%s`", field.Name.Value, node.Name)
 				fieldsSucceded = false
 				continue
 			}
 
 			ft, ok := checkedast.ConvertVarType(field.Type, c.symbols)
 			if !ok {
-				c.appendDiagnostic(node.Position(), "invalid field type for field `%s` on struct `%s`", field.Name.Value, node.Name)
+				c.appendDiagnostic(field.Name.Position(), "invalid field type for field `%s` on struct `%s`", field.Name.Value, node.Name)
 				fieldsSucceded = false
 				continue
 			}
+
+			if ft.Base == checkedast.Void && ft.Pointer == 0 {
+				c.appendDiagnostic(field.Name.Position(), "none type not allowed on fields, field `%s` on struct `%s`", field.Name.Value, node.Name)
+				fieldsSucceded = false
+				continue
+			}
+
 			structAst.FieldNames[field.Name.Value] = len(structAst.Fields)
 			structAst.Fields = append(structAst.Fields, checkedast.TypedName{
 				Name: field.Name.Value,

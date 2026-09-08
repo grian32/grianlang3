@@ -23,6 +23,66 @@ var declarationTests = []struct {
 }{
 	{name: "empty"},
 	{
+		name: "none field",
+		source: `struct Item {
+    none value
+}`,
+		diagnostics: []expectedDiagnostic{
+			{messageContains: []string{"none", "field", "value"}, line: 2},
+		},
+	},
+	{
+		name: "none parameter",
+		source: `fnc consume(
+    none value
+) -> none { }`,
+		diagnostics: []expectedDiagnostic{
+			{messageContains: []string{"none", "param", "value"}, line: 2},
+		},
+	},
+	{
+		name:   "none global",
+		source: `global none value = 0`,
+		diagnostics: []expectedDiagnostic{
+			{messageContains: []string{"none", "global", "value"}, line: 1},
+		},
+	},
+	{
+		name:   "none constant global",
+		source: `global const none value = 0`,
+		diagnostics: []expectedDiagnostic{
+			{messageContains: []string{"none", "global", "value"}, line: 1},
+		},
+	},
+	{
+		name: "none return and pointer types are allowed",
+		source: `struct Handle { none* pointer }
+fnc consume(none** pointer) -> none { }
+fnc produce() -> none* { return 0 as none* }
+global none* handle = 0 as none*`,
+		want: checkedast.Program{
+			Structs: []checkedast.Struct{
+				{Name: "Handle", Id: 0,
+					Fields:     []checkedast.TypedName{{Name: "pointer", Type: checkedast.Type{Base: checkedast.Void, Pointer: 1}}},
+					FieldNames: map[string]int{"pointer": 0}},
+			},
+			Functions: []checkedast.Function{
+				{Name: "consume", Id: 0,
+					Parameters:     []checkedast.TypedName{{Name: "pointer", Type: checkedast.Type{Base: checkedast.Void, Pointer: 2}}},
+					ParameterNames: map[string]int{"pointer": 0},
+					ReturnType:     checkedast.Type{Base: checkedast.Void}},
+				{Name: "produce", Id: 1, ReturnType: checkedast.Type{Base: checkedast.Void, Pointer: 1}},
+			},
+			Globals: []checkedast.Global{
+				{Name: "handle", Id: 0, Type: checkedast.Type{Base: checkedast.Void, Pointer: 1}},
+			},
+		},
+		symbols: map[string]checkedast.Symbol{
+			"Handle": checkedast.StructID(0), "consume": checkedast.FunctionID(0),
+			"produce": checkedast.FunctionID(1), "handle": checkedast.GlobalID(0),
+		},
+	},
+	{
 		name:   "invalid global type",
 		source: `global Missing* value = 0`,
 		diagnostics: []expectedDiagnostic{
