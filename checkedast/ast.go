@@ -58,10 +58,9 @@ type Global struct {
 }
 
 type Program struct {
-	Structs    []Struct
-	Functions  []Function
-	Globals    []Global
-	Statements []Stmt
+	Structs   []Struct
+	Functions []Function
+	Globals   []Global
 }
 
 type Local struct {

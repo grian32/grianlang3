@@ -100,6 +100,22 @@ var pass2DiagnosticTests = []struct {
 	name, source string
 	diagnostics  []expectedDiagnostic
 }{
+	{
+		name:        "top level expression is forbidden",
+		source:      `1i32`,
+		diagnostics: []expectedDiagnostic{{messageContains: []string{"top level"}, line: 1}},
+	},
+	{
+		name:        "top level local declaration is forbidden",
+		source:      `def int32 value = 1i32`,
+		diagnostics: []expectedDiagnostic{{messageContains: []string{"top level"}, line: 1}},
+	},
+	{
+		name:        "top level control flow is forbidden",
+		source:      `if true { }`,
+		diagnostics: []expectedDiagnostic{{messageContains: []string{"top level"}, line: 1}},
+	},
+
 	{name: "too many arguments", source: `fnc other() -> int32 { return 0i32 }
 fnc sample() -> int32 { return other(1i32) }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"argument"}, line: 2}}},
 	{name: "void call used as value", source: `fnc other() -> none {}
@@ -311,14 +327,7 @@ var pass2ProgramTests = []struct {
 	name, source string
 	want         ast.Program
 }{
-	{
-		name:   "top level expression preserves program statement order",
-		source: `1i32 2i32`,
-		want: ast.Program{Statements: []ast.Stmt{
-			&ast.ExpressionStatement{Expr: &ast.IntegerLiteral{ExprInfo: ast.ExprInfo{ResultType: ast.Type{Base: ast.Int32}}, Value: 1}},
-			&ast.ExpressionStatement{Expr: &ast.IntegerLiteral{ExprInfo: ast.ExprInfo{ResultType: ast.Type{Base: ast.Int32}}, Value: 2}},
-		}},
-	},
+
 	{
 		name:   "global initializers preserve declaration IDs and types",
 		source: `global int32 first = 1i32 global const bool second = true`,

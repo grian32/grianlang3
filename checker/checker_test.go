@@ -123,10 +123,9 @@ private fnc beta(int32 input) -> int32 {
 		},
 	},
 	{
-		name: "other statements are not declarations",
+		name: "imports and function locals are not global declarations",
 		source: `
 import "io"
-def int32 topLevelLocal = 0i32
 fnc probe(int32 parameter) -> int32 {
     def int32 inside = parameter
     return inside
@@ -363,7 +362,6 @@ func assertDeclarationMetadata(t *testing.T, got, want *checkedast.Program) {
 	for i := range metadata.Globals {
 		metadata.Globals[i].Initializer = nil
 	}
-	metadata.Statements = nil
 	assertDeclarations(t, &metadata, want)
 }
 
@@ -375,7 +373,6 @@ func assertDeclarations(t *testing.T, got, want *checkedast.Program) {
 	assertSlice(t, "structs", got.Structs, want.Structs)
 	assertSlice(t, "functions", got.Functions, want.Functions)
 	assertSlice(t, "globals", got.Globals, want.Globals)
-	assertSlice(t, "statements", got.Statements, want.Statements)
 }
 
 func assertSlice[T any](t *testing.T, name string, got, want []T) {
