@@ -15,3 +15,7 @@ func (FunctionID) symbol() {}
 type GlobalID uint32
 
 func (GlobalID) symbol() {}
+
+type LocalID uint32
+
+func (LocalID) symbol() {}

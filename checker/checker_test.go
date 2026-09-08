@@ -319,7 +319,7 @@ global int32 counter = 1i32`,
 	},
 }
 
-// CheckProgram is the entry point; its returned program is the declaration output.
+// These cases check declaration metadata; pass 2 cases check executable output.
 func TestCheckProgram(t *testing.T) {
 	for _, test := range declarationTests {
 		t.Run(test.name, func(t *testing.T) {
@@ -332,7 +332,7 @@ func TestCheckProgram(t *testing.T) {
 				// Recovery output is not part of the error-case contract.
 				return
 			}
-			assertDeclarations(t, got, &test.want)
+			assertDeclarationMetadata(t, got, &test.want)
 			assertSymbols(t, c.symbols, test.symbols)
 		})
 	}
@@ -348,6 +348,25 @@ func parseDeclarations(t *testing.T, source string) *parser.Program {
 	return program
 }
 
+func assertDeclarationMetadata(t *testing.T, got, want *checkedast.Program) {
+	t.Helper()
+	if got == nil {
+		t.Fatal("CheckProgram returned nil")
+	}
+	metadata := *got
+	metadata.Functions = append([]checkedast.Function(nil), got.Functions...)
+	metadata.Globals = append([]checkedast.Global(nil), got.Globals...)
+	for i := range metadata.Functions {
+		metadata.Functions[i].Locals = nil
+		metadata.Functions[i].Body = checkedast.Block{}
+	}
+	for i := range metadata.Globals {
+		metadata.Globals[i].Initializer = nil
+	}
+	metadata.Statements = nil
+	assertDeclarations(t, &metadata, want)
+}
+
 func assertDeclarations(t *testing.T, got, want *checkedast.Program) {
 	t.Helper()
 	if got == nil {
@@ -356,6 +375,7 @@ func assertDeclarations(t *testing.T, got, want *checkedast.Program) {
 	assertSlice(t, "structs", got.Structs, want.Structs)
 	assertSlice(t, "functions", got.Functions, want.Functions)
 	assertSlice(t, "globals", got.Globals, want.Globals)
+	assertSlice(t, "statements", got.Statements, want.Statements)
 }
 
 func assertSlice[T any](t *testing.T, name string, got, want []T) {
@@ -382,6 +402,12 @@ func normalizeEmptyCollections(declaration any) any {
 		}
 		return node
 	case checkedast.Function:
+		if len(node.Locals) == 0 {
+			node.Locals = nil
+		}
+		if len(node.Body.Statements) == 0 {
+			node.Body.Statements = nil
+		}
 		if len(node.Parameters) == 0 {
 			node.Parameters = nil
 		}

@@ -7,12 +7,18 @@ import (
 	"gl3/util"
 )
 
+type Scope struct {
+	Symbols map[string]checkedast.Symbol
+	Parent  *Scope
+}
+
 type Checker struct {
 	structs   []checkedast.Struct
 	functions []checkedast.Function
 	globals   []checkedast.Global
 
-	symbols map[string]checkedast.Symbol
+	symbols      map[string]checkedast.Symbol
+	currentScope *Scope
 
 	diagnostics []Diagnostic
 }
