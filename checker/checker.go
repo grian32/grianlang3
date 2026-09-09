@@ -22,8 +22,11 @@ type Checker struct {
 	functionPostions []*util.Position
 	globalPositions  []*util.Position
 
-	symbols      map[string]checkedast.Symbol
-	currentScope *Scope
+	functionBodies []*parser.BlockStatement
+
+	symbols         map[string]checkedast.Symbol
+	currentScope    *Scope
+	currentFunction *checkedast.Function
 
 	diagnostics []Diagnostic
 }
@@ -58,7 +61,120 @@ end:
 }
 
 func (c *Checker) checkBodies(node parser.Node) bool {
+	c.currentScope = &Scope{
+		Symbols: c.symbols,
+		Parent:  nil,
+	}
+
+	for i := range c.functions {
+		f := &c.functions[i]
+		if body := c.functionBodies[f.Id]; body != nil {
+			parentScope := c.currentScope
+			c.currentScope = &Scope{
+				Symbols: make(map[string]checkedast.Symbol, len(f.Parameters)),
+				Parent:  parentScope,
+			}
+			c.currentFunction = f
+			f.Locals = make([]checkedast.Local, len(f.Parameters))
+			for j, param := range f.Parameters {
+				f.Locals[j] = checkedast.Local{Name: param.Name, Type: param.Type}
+				c.currentScope.Symbols[param.Name] = checkedast.LocalID(j)
+			}
+
+			checkedBody, ok := c.checkBlock(body)
+			c.currentScope = parentScope
+			c.currentFunction = nil
+			if !ok {
+				return false
+			}
+			f.Body = checkedBody
+		}
+	}
+
 	return true
+}
+
+func (c *Checker) checkBlock(block *parser.BlockStatement) (checkedast.Block, bool) {
+	checkBlock := checkedast.Block{}
+
+	for _, s := range block.Statements {
+		stmt, ok := c.checkStmt(s)
+		if !ok {
+			return checkedast.Block{}, false
+		}
+		checkBlock.Statements = append(checkBlock.Statements, stmt)
+	}
+
+	return checkBlock, true
+}
+
+func (c *Checker) checkStmt(stmt parser.Statement) (checkedast.Stmt, bool) {
+	switch stmt := stmt.(type) {
+	case *parser.ExpressionStatement:
+		expr, ok := c.checkExpr(stmt.Expression)
+		if !ok {
+			return nil, false
+		}
+		return &checkedast.ExpressionStatement{Expr: expr}, true
+	case *parser.ReturnStatement:
+		expr, ok := c.checkExpr(stmt.Expr)
+		if !ok {
+			return nil, false
+		}
+		return &checkedast.Return{Value: expr}, true
+	}
+
+	return nil, true
+}
+
+func (c *Checker) checkExpr(expr parser.Expression) (checkedast.Expr, bool) {
+	switch expr := expr.(type) {
+	case *parser.IntegerLiteral:
+		bt := checkedast.ConvertBaseType(expr.Type.Base)
+		if bt == checkedast.Invalid {
+			c.appendDiagnostic(expr.Position(), "invalid type on integer literal")
+			return nil, false
+		}
+		value := uint64(expr.Value)
+		signed := true
+		var bits uint8 = 64
+		switch expr.Type.Base {
+		case lexer.Int32:
+			bits = 32
+		case lexer.Int16:
+			bits = 16
+		case lexer.Int8:
+			bits = 8
+		case lexer.Uint:
+			signed = false
+			value = expr.UValue
+		case lexer.Uint32:
+			bits = 32
+			signed = false
+			value = expr.UValue
+		case lexer.Uint16:
+			bits = 16
+			signed = false
+			value = expr.UValue
+		case lexer.Uint8:
+			bits = 8
+			signed = false
+			value = expr.UValue
+		}
+
+		if !util.IntegerInRange(expr.UValue, false, bits, signed) {
+			c.appendDiagnostic(expr.Position(), "invalid value for literal of type %s", expr.Type.Base.String())
+			return nil, false
+		}
+
+		return &checkedast.IntegerLiteral{
+			ExprInfo: checkedast.ExprInfo{
+				ResultType: checkedast.Type{Base: bt},
+			},
+			Value: value,
+		}, true
+	}
+	return nil, true
 }
 
 func (c *Checker) assignIDs(node parser.Node) bool {
@@ -113,6 +229,7 @@ func (c *Checker) assignIDs(node parser.Node) bool {
 			Private:  node.Private,
 		})
 		c.functionPostions = append(c.functionPostions, node.Position())
+		c.functionBodies = append(c.functionBodies, node.Body)
 		c.symbols[node.Name.Value] = id
 	case *parser.ExternFunctionStatement:
 		if c.isSymbolDuplicate(node.Name, node.Position()) {
@@ -127,6 +244,7 @@ func (c *Checker) assignIDs(node parser.Node) bool {
 			Private:  node.Private,
 		})
 		c.functionPostions = append(c.functionPostions, node.Position())
+		c.functionBodies = append(c.functionBodies, nil)
 		c.symbols[node.Name] = id
 	case *parser.DefStatement:
 		if !node.Global {

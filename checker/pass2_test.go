@@ -10,6 +10,10 @@ var pass2ExpressionTests = []struct {
 	name, source string
 	want         ast.Expr
 }{
+	{name: "signed minimum", source: `fnc sample() -> int8 { return -128i8 }`, want: &ast.IntegerLiteral{ExprInfo: ast.ExprInfo{ResultType: ast.Type{Base: ast.Int8}}, Value: 128}},
+	{name: "int64 minimum", source: `fnc sample() -> int { return -9223372036854775808 }`, want: &ast.IntegerLiteral{ExprInfo: ast.ExprInfo{ResultType: ast.Type{Base: ast.Int}}, Value: 1 << 63}},
+	{name: "uint64 maximum", source: `fnc sample() -> uint { return 18446744073709551615u64 }`, want: &ast.IntegerLiteral{ExprInfo: ast.ExprInfo{ResultType: ast.Type{Base: ast.Uint}}, Value: ^uint64(0)}},
+	{name: "negative one bits", source: `fnc sample() -> int16 { return -1i16 }`, want: &ast.IntegerLiteral{ExprInfo: ast.ExprInfo{ResultType: ast.Type{Base: ast.Int16}}, Value: 65535}},
 	{name: "int literal", source: `fnc sample() -> int { return 7 }`, want: &ast.IntegerLiteral{ExprInfo: ast.ExprInfo{ResultType: ast.Type{Base: ast.Int}}, Value: 7}},
 	{name: "int32 literal", source: `fnc sample() -> int32 { return 7i32 }`, want: &ast.IntegerLiteral{ExprInfo: ast.ExprInfo{ResultType: ast.Type{Base: ast.Int32}}, Value: 7}},
 	{name: "int16 literal", source: `fnc sample() -> int16 { return 7i16 }`, want: &ast.IntegerLiteral{ExprInfo: ast.ExprInfo{ResultType: ast.Type{Base: ast.Int16}}, Value: 7}},
@@ -100,6 +104,10 @@ var pass2DiagnosticTests = []struct {
 	name, source string
 	diagnostics  []expectedDiagnostic
 }{
+	{name: "signed underflow", source: `fnc sample() -> int8 { return -129i8 }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"out of range", "int8"}, line: 1}}},
+	{name: "int64 overflow", source: `fnc sample() -> int { return 9223372036854775808 }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"invalid value", "Int"}, line: 1}}},
+	{name: "int64 underflow", source: `fnc sample() -> int { return -9223372036854775809 }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"out of range", "int"}, line: 1}}},
+	{name: "negative unsigned literal", source: `fnc sample() -> uint8 { return -1u8 }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"out of range", "uint8"}, line: 1}}},
 	{name: "calling an opaque return function requires a sized value", source: `extern struct Handle
 extern fnc create() -> Handle
 fnc use() -> none { create() }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"Handle", "opaque"}, line: 3}}},
@@ -154,7 +162,7 @@ fnc sample(int32 x) -> int32 { return x as Missing }`, diagnostics: []expectedDi
 	{name: "cast to none", source: `
 fnc sample(int32 x) -> none { x as none }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"none"}, line: 2}}},
 	{name: "unsigned overflow", source: `
-fnc sample() -> uint8 { return 256u8 }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"uint8"}, line: 2}}},
+fnc sample() -> uint8 { return 256u8 }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"invalid value", "Uint8"}, line: 2}}},
 	{name: "sizeof unknown type", source: `
 fnc sample() -> uint { return sizeof Missing }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"Missing"}, line: 2}}},
 	{name: "array invalid element type", source: `
@@ -226,7 +234,7 @@ fnc sample() -> none { value.x = 2i32 }`, diagnostics: []expectedDiagnostic{{mes
 }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"int32", "bool"}, line: 2}}},
 	{name: "integer overflow", source: `fnc sample() -> int32 {
  return 2147483648i32
-}`, diagnostics: []expectedDiagnostic{{messageContains: []string{"int32"}, line: 2}}},
+}`, diagnostics: []expectedDiagnostic{{messageContains: []string{"invalid value", "Int32"}, line: 2}}},
 	{name: "branch scope exit", source: `fnc sample() -> int32 {
  if true { def int32 hidden = 1i32 } return hidden
 }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"unknown", "hidden"}, line: 2}}},
