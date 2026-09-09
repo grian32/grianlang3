@@ -18,6 +18,10 @@ type Checker struct {
 	functions []checkedast.Function
 	globals   []checkedast.Global
 
+	structPositions  []*util.Position
+	functionPostions []*util.Position
+	globalPositions  []*util.Position
+
 	symbols      map[string]checkedast.Symbol
 	currentScope *Scope
 
@@ -34,6 +38,10 @@ func (c *Checker) CheckProgram(program *parser.Program) (*checkedast.Program, []
 	}
 
 	if !c.populateFieldsFunctions(program) {
+		goto end
+	}
+
+	if !c.checkSizedDeclarations() {
 		goto end
 	}
 
@@ -76,6 +84,7 @@ func (c *Checker) assignIDs(node parser.Node) bool {
 			Opaque:  false,
 			Private: false,
 		})
+		c.structPositions = append(c.structPositions, node.Position())
 		c.symbols[node.Name] = id
 	case *parser.ExternStructStatement:
 		if c.isSymbolDuplicate(node.Name, node.Position()) {
@@ -89,6 +98,7 @@ func (c *Checker) assignIDs(node parser.Node) bool {
 			Opaque:  true,
 			Private: node.Private,
 		})
+		c.structPositions = append(c.structPositions, node.Position())
 		c.symbols[node.Name] = id
 	case *parser.FunctionStatement:
 		if c.isSymbolDuplicate(node.Name.Value, node.Position()) {
@@ -102,6 +112,7 @@ func (c *Checker) assignIDs(node parser.Node) bool {
 			External: false,
 			Private:  node.Private,
 		})
+		c.functionPostions = append(c.functionPostions, node.Position())
 		c.symbols[node.Name.Value] = id
 	case *parser.ExternFunctionStatement:
 		if c.isSymbolDuplicate(node.Name, node.Position()) {
@@ -115,6 +126,7 @@ func (c *Checker) assignIDs(node parser.Node) bool {
 			External: true,
 			Private:  node.Private,
 		})
+		c.functionPostions = append(c.functionPostions, node.Position())
 		c.symbols[node.Name] = id
 	case *parser.DefStatement:
 		if !node.Global {
@@ -131,6 +143,7 @@ func (c *Checker) assignIDs(node parser.Node) bool {
 			Id:       id,
 			Constant: node.Constant,
 		})
+		c.globalPositions = append(c.globalPositions, node.Position())
 		c.symbols[node.Name.Value] = id
 	}
 
@@ -138,9 +151,6 @@ func (c *Checker) assignIDs(node parser.Node) bool {
 }
 
 func (c *Checker) populateFieldsFunctions(node parser.Node) bool {
-	// TODO: After all fields are populated, recursively check sizing for globals
-	// and defined-function signatures, including forward-declared structs that
-	// contain opaque fields indirectly. Pointers remain sized regardless of pointee.
 	switch node := node.(type) {
 	case *parser.Program:
 		valid := true
@@ -240,6 +250,35 @@ func (c *Checker) populateFieldsFunctions(node parser.Node) bool {
 	return true
 }
 
+func (c *Checker) checkSizedDeclarations() bool {
+	for i := range c.structs {
+		s := &c.structs[i]
+		s.Unsized = !c.isSized(checkedast.Type{Base: checkedast.StructType, Struct: s.Id}, map[checkedast.StructID]struct{}{})
+	}
+
+	for _, fnc := range c.functions {
+		for _, p := range fnc.Parameters {
+			if !c.isSized(p.Type, map[checkedast.StructID]struct{}{}) {
+				c.appendDiagnostic(c.functionPostions[fnc.Id], "unsized type is not allowed for parameter `%s` in function `%s`; use a pointer", p.Name, fnc.Name)
+				return false
+			}
+		}
+		if !fnc.External && fnc.ReturnType.Base != checkedast.Void && !c.isSized(fnc.ReturnType, map[checkedast.StructID]struct{}{}) {
+			c.appendDiagnostic(c.functionPostions[fnc.Id], "unsized return type is not allowed for function `%s`; use a pointer", fnc.Name)
+			return false
+		}
+	}
+
+	for _, g := range c.globals {
+		if !c.isSized(g.Type, map[checkedast.StructID]struct{}{}) {
+			c.appendDiagnostic(c.globalPositions[g.Id], "unsized type is not allowed for global `%s`; use a pointer", g.Name)
+			return false
+		}
+	}
+
+	return true
+}
+
 func (c *Checker) checkFunctionParams(params []parser.FunctionParameter, funcAst *checkedast.Function, funcName string) bool {
 	funcAst.ParameterNames = make(map[string]int)
 	paramsSucceded := true
@@ -294,6 +333,39 @@ func (c *Checker) functionRetType(retType lexer.VarType, position *util.Position
 	}
 
 	return rt, true
+}
+
+func (c *Checker) isSized(t checkedast.Type, visitedStructs map[checkedast.StructID]struct{}) bool {
+	if t.Pointer > 0 {
+		return true
+	}
+
+	// primitive
+	if t.Base != checkedast.StructType && t.Base != checkedast.Void {
+		return true
+	}
+
+	if t.Base == checkedast.StructType {
+		if c.structs[t.Struct].Opaque {
+			return false
+		} else {
+			if _, ok := visitedStructs[t.Struct]; ok {
+				return false
+			}
+			visitedStructs[t.Struct] = struct{}{}
+			defer delete(visitedStructs, t.Struct)
+
+			for _, f := range c.structs[t.Struct].Fields {
+				if !c.isSized(f.Type, visitedStructs) {
+					return false
+				}
+			}
+
+			return true
+		}
+	}
+
+	return false
 }
 
 func (c *Checker) isSymbolDuplicate(name string, pos *util.Position) bool {

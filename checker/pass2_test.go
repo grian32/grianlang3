@@ -100,6 +100,23 @@ var pass2DiagnosticTests = []struct {
 	name, source string
 	diagnostics  []expectedDiagnostic
 }{
+	{name: "calling an opaque return function requires a sized value", source: `extern struct Handle
+extern fnc create() -> Handle
+fnc use() -> none { create() }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"Handle", "opaque"}, line: 3}}},
+	{name: "opaque pointer arithmetic requires element size", source: `extern struct Handle
+fnc next(Handle* p) -> Handle* { return p + 1 }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"Handle", "opaque"}, line: 2}}},
+	{name: "opaque dereference cannot load a value", source: `extern struct Handle
+fnc read(Handle* p) -> none { *p }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"Handle", "opaque"}, line: 2}}},
+	{name: "sizeof struct containing opaque field requires a sized type", source: `extern struct Handle
+struct Wrapper { Handle handle }
+fnc size() -> uint { return sizeof Wrapper }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"Wrapper", "size"}, line: 3}}},
+	{name: "opaque sizeof", source: `extern struct Handle
+fnc size() -> uint { return sizeof Handle }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"Handle", "opaque"}, line: 2}}},
+	{name: "opaque field access", source: `extern struct Handle
+fnc read(Handle* handle) -> int32 { return (*handle).value }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"Handle", "opaque"}, line: 2}}},
+	{name: "opaque struct literal", source: `extern struct Handle
+fnc create() -> none { Handle:{} }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"Handle", "opaque"}, line: 2}}},
+
 	{
 		name:        "top level expression is forbidden",
 		source:      `1i32`,

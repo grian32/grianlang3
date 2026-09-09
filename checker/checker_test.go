@@ -21,6 +21,46 @@ var declarationTests = []struct {
 	symbols     map[string]checkedast.Symbol
 	diagnostics []expectedDiagnostic
 }{
+	{
+		name: "struct sizing flags follow forward fields and preserve pointers",
+		source: `struct Outer { Inner inner }
+struct Inner { Handle handle }
+struct PointerHolder { Outer* value }
+extern struct Handle`,
+		want: checkedast.Program{Structs: []checkedast.Struct{
+			{Name: "Outer", Id: 0, Unsized: true, Fields: []checkedast.TypedName{{Name: "inner", Type: checkedast.Type{Base: checkedast.StructType, Struct: 1}}}, FieldNames: map[string]int{"inner": 0}},
+			{Name: "Inner", Id: 1, Unsized: true, Fields: []checkedast.TypedName{{Name: "handle", Type: checkedast.Type{Base: checkedast.StructType, Struct: 3}}}, FieldNames: map[string]int{"handle": 0}},
+			{Name: "PointerHolder", Id: 2, Unsized: false, Fields: []checkedast.TypedName{{Name: "value", Type: checkedast.Type{Base: checkedast.StructType, Struct: 0, Pointer: 1}}}, FieldNames: map[string]int{"value": 0}},
+			{Name: "Handle", Id: 3, Opaque: true, Unsized: true},
+		}},
+		symbols: map[string]checkedast.Symbol{"Outer": checkedast.StructID(0), "Inner": checkedast.StructID(1), "PointerHolder": checkedast.StructID(2), "Handle": checkedast.StructID(3)},
+	},
+
+	{name: "unsized nested parameter", source: `extern struct Handle
+struct Inner { Handle handle }
+struct Outer { Inner inner }
+fnc consume(Outer value) -> none {}`, diagnostics: []expectedDiagnostic{{messageContains: []string{"unsized", "parameter", "consume"}, line: 4}}},
+	{name: "unsized nested extern parameter", source: `extern struct Handle
+struct Wrapper { Handle handle }
+extern fnc consume(Wrapper value) -> none`, diagnostics: []expectedDiagnostic{{messageContains: []string{"unsized", "parameter", "consume"}, line: 3}}},
+	{name: "unsized nested function return", source: `extern struct Handle
+struct Wrapper { Handle handle }
+fnc create() -> Wrapper {}`, diagnostics: []expectedDiagnostic{{messageContains: []string{"size", "create"}, line: 3}}},
+	{name: "unsized return with forward field declarations", source: `fnc create() -> Outer {}
+struct Outer { Inner inner }
+struct Inner { Handle handle }
+extern struct Handle`, diagnostics: []expectedDiagnostic{{messageContains: []string{"size", "create"}, line: 1}}},
+	{name: "unsized global after field declarations", source: `extern struct Handle
+struct Wrapper { Handle handle }
+global Wrapper value = Wrapper:{}`, diagnostics: []expectedDiagnostic{{messageContains: []string{"global", "value"}, line: 3}}},
+	{name: "direct value cycle in parameter", source: `struct Node { Node next }
+fnc consume(Node value) -> none {}`, diagnostics: []expectedDiagnostic{{messageContains: []string{"unsized", "parameter", "consume"}, line: 2}}},
+	{name: "indirect value cycle in parameter", source: `struct First { Second next }
+struct Second { First next }
+fnc consume(First value) -> none {}`, diagnostics: []expectedDiagnostic{{messageContains: []string{"unsized", "parameter", "consume"}, line: 3}}},
+	{name: "indirect value cycle in return", source: `struct First { Second next }
+struct Second { First next }
+fnc create() -> First {}`, diagnostics: []expectedDiagnostic{{messageContains: []string{"size", "create"}, line: 3}}},
 	{name: "privacy of functions", source: `fnc publicBefore() -> none {}
 private fnc hidden() -> none {}
 fnc publicAfter() -> none {}`, want: checkedast.Program{Functions: []checkedast.Function{{Name: "publicBefore", Id: 0, Private: false, External: false, ReturnType: checkedast.Type{Base: checkedast.Void}}, {Name: "hidden", Id: 1, Private: true, External: false, ReturnType: checkedast.Type{Base: checkedast.Void}}, {Name: "publicAfter", Id: 2, Private: false, External: false, ReturnType: checkedast.Type{Base: checkedast.Void}}}}, symbols: map[string]checkedast.Symbol{"publicBefore": checkedast.FunctionID(0), "hidden": checkedast.FunctionID(1), "publicAfter": checkedast.FunctionID(2)}},
@@ -34,10 +74,10 @@ private extern struct Hidden
 struct Regular { int32 value }
 extern struct PublicAfter`,
 		want: checkedast.Program{Structs: []checkedast.Struct{
-			{Name: "PublicBefore", Id: 0, Opaque: true, Private: false},
-			{Name: "Hidden", Id: 1, Opaque: true, Private: true},
+			{Name: "PublicBefore", Id: 0, Opaque: true, Unsized: true, Private: false},
+			{Name: "Hidden", Id: 1, Opaque: true, Unsized: true, Private: true},
 			{Name: "Regular", Id: 2, Opaque: false, Private: false, Fields: []checkedast.TypedName{{Name: "value", Type: checkedast.Type{Base: checkedast.Int32}}}, FieldNames: map[string]int{"value": 0}},
-			{Name: "PublicAfter", Id: 3, Opaque: true, Private: false},
+			{Name: "PublicAfter", Id: 3, Opaque: true, Unsized: true, Private: false},
 		}},
 		symbols: map[string]checkedast.Symbol{"PublicBefore": checkedast.StructID(0), "Hidden": checkedast.StructID(1), "Regular": checkedast.StructID(2), "PublicAfter": checkedast.StructID(3)},
 	},
@@ -520,7 +560,7 @@ extern fnc open() -> Handle*
 extern struct Other
 extern fnc close(Handle* handle) -> none`,
 		want: checkedast.Program{
-			Structs: []checkedast.Struct{{Name: "First", Id: 0}, {Name: "Handle", Id: 1, Opaque: true}, {Name: "Other", Id: 2, Opaque: true}},
+			Structs: []checkedast.Struct{{Name: "First", Id: 0}, {Name: "Handle", Id: 1, Opaque: true, Unsized: true}, {Name: "Other", Id: 2, Opaque: true, Unsized: true}},
 			Functions: []checkedast.Function{
 				{Name: "first", Id: 0, ReturnType: checkedast.Type{Base: checkedast.Void}},
 				{Name: "open", Id: 1, External: true, ReturnType: checkedast.Type{Base: checkedast.StructType, Struct: 1, Pointer: 1}},
@@ -538,7 +578,7 @@ extern struct Handle`,
 		want: checkedast.Program{
 			Structs: []checkedast.Struct{
 				{Name: "Wrapper", Id: 0, Fields: []checkedast.TypedName{{Name: "handle", Type: checkedast.Type{Base: checkedast.StructType, Struct: 1, Pointer: 1}}}, FieldNames: map[string]int{"handle": 0}},
-				{Name: "Handle", Id: 1, Opaque: true},
+				{Name: "Handle", Id: 1, Opaque: true, Unsized: true},
 			},
 			Functions: []checkedast.Function{{Name: "lookup", Id: 0, External: true, Parameters: []checkedast.TypedName{{Name: "handles", Type: checkedast.Type{Base: checkedast.StructType, Struct: 1, Pointer: 2}}}, ParameterNames: map[string]int{"handles": 0}, ReturnType: checkedast.Type{Base: checkedast.StructType, Struct: 1, Pointer: 1}}},
 			Globals:   []checkedast.Global{{Name: "handle", Id: 0, Type: checkedast.Type{Base: checkedast.StructType, Struct: 1, Pointer: 1}}},
@@ -559,8 +599,8 @@ extern fnc read(Named value) -> none`, diagnostics: []expectedDiagnostic{{messag
 		source: `extern struct Handle
 struct Wrapper { Handle handle }`,
 		want: checkedast.Program{Structs: []checkedast.Struct{
-			{Name: "Handle", Id: 0, Opaque: true},
-			{Name: "Wrapper", Id: 1, Fields: []checkedast.TypedName{{Name: "handle", Type: checkedast.Type{Base: checkedast.StructType, Struct: 0}}}, FieldNames: map[string]int{"handle": 0}},
+			{Name: "Handle", Id: 0, Opaque: true, Unsized: true},
+			{Name: "Wrapper", Id: 1, Unsized: true, Fields: []checkedast.TypedName{{Name: "handle", Type: checkedast.Type{Base: checkedast.StructType, Struct: 0}}}, FieldNames: map[string]int{"handle": 0}},
 		}},
 		symbols: map[string]checkedast.Symbol{"Handle": checkedast.StructID(0), "Wrapper": checkedast.StructID(1)},
 	},
@@ -571,7 +611,7 @@ extern fnc consume(Handle handle) -> none`, diagnostics: []expectedDiagnostic{{m
 		source: `extern struct Handle
 extern fnc create() -> Handle`,
 		want: checkedast.Program{
-			Structs:   []checkedast.Struct{{Name: "Handle", Id: 0, Opaque: true}},
+			Structs:   []checkedast.Struct{{Name: "Handle", Id: 0, Opaque: true, Unsized: true}},
 			Functions: []checkedast.Function{{Name: "create", Id: 0, External: true, ReturnType: checkedast.Type{Base: checkedast.StructType, Struct: 0}}},
 		},
 		symbols: map[string]checkedast.Symbol{"Handle": checkedast.StructID(0), "create": checkedast.FunctionID(0)},
@@ -584,24 +624,8 @@ global Handle handle = Handle:{}`, diagnostics: []expectedDiagnostic{{messageCon
 struct Outer { Inner inner }
 struct Inner { Handle handle }
 extern struct Handle`,
-		diagnostics: []expectedDiagnostic{{messageContains: []string{"size", "global", "value"}, line: 1}},
+		diagnostics: []expectedDiagnostic{{messageContains: []string{"global", "value"}, line: 1}},
 	},
-	{name: "calling an opaque return function requires a sized value", source: `extern struct Handle
-extern fnc create() -> Handle
-fnc use() -> none { create() }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"Handle", "opaque"}, line: 3}}},
-	{name: "opaque pointer arithmetic requires element size", source: `extern struct Handle
-fnc next(Handle* p) -> Handle* { return p + 1 }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"Handle", "opaque"}, line: 2}}},
-	{name: "opaque dereference cannot load a value", source: `extern struct Handle
-fnc read(Handle* p) -> none { *p }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"Handle", "opaque"}, line: 2}}},
-	{name: "sizeof struct containing opaque field requires a sized type", source: `extern struct Handle
-struct Wrapper { Handle handle }
-fnc size() -> uint { return sizeof Wrapper }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"Wrapper", "size"}, line: 3}}},
-	{name: "opaque sizeof", source: `extern struct Handle
-fnc size() -> uint { return sizeof Handle }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"Handle", "opaque"}, line: 2}}},
-	{name: "opaque field access", source: `extern struct Handle
-fnc read(Handle* handle) -> int32 { return (*handle).value }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"Handle", "opaque"}, line: 2}}},
-	{name: "opaque struct literal", source: `extern struct Handle
-fnc create() -> none { Handle:{} }`, diagnostics: []expectedDiagnostic{{messageContains: []string{"Handle", "opaque"}, line: 2}}},
 	{name: "duplicate extern functions", source: `extern fnc repeated() -> none
 extern fnc repeated() -> none`, diagnostics: []expectedDiagnostic{{messageContains: []string{"duplicate", "repeated"}, line: 2}}},
 	{name: "extern function then defined function", source: `extern fnc repeated() -> none
